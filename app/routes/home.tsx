@@ -25,11 +25,15 @@ const logMiddleware: Route.MiddlewareFunction = async ({
   request,
   context,
 }) => {
-  const country =
-    context.get(netlifyRouterContext).geo?.country?.name || "unknown location";
-  console.log(
-    `Handling ${request.method} request to ${request.url} from ${country}`,
-  );
+  try {
+    const netlifyContext = context.get(netlifyRouterContext);
+    const country = netlifyContext?.geo?.country?.name || "unknown location";
+    console.log(
+      `Handling ${request.method} request to ${request.url} from ${country}`,
+    );
+  } catch {
+    console.log(`Handling ${request.method} request to ${request.url}`);
+  }
 };
 
 export const middleware: Route.MiddlewareFunction[] = [
