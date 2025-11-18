@@ -24,4 +24,5 @@ export default [
   route("collection/new", "routes/collection.new.tsx"),
   route("collection/:id", "routes/collection.$id.tsx"),
   route("collection/:id/edit", "routes/collection.$id.edit.tsx"),
+  route("test/header", "routes/test.header.tsx"),
 ] satisfies RouteConfig;
