@@ -1,6 +1,5 @@
 import { calculateDistance, isValidCoordinates } from "./geo";
-
-// Database operations are deferred until Prisma is properly integrated
+import { prismaClient } from "./db.server";
 
 const PROXIMITY_RADIUS_METERS = 20;
 
@@ -18,13 +17,34 @@ export async function createArtwork(
   if (!isValidCoordinates(latitude, longitude)) {
     throw new Error("Invalid coordinates");
   }
-  // TODO: Implement with Prisma
-  throw new Error("Artwork creation not yet implemented");
+
+  const prisma = await prismaClient();
+
+  return prisma.artwork.create({
+    data: {
+      title,
+      latitude,
+      longitude,
+      createdById,
+      description: options?.description,
+      yearCreated: options?.yearCreated,
+      artistId: options?.artistId,
+    },
+  });
 }
 
 export async function getArtwork(id: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Artwork retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.findUnique({
+    where: { id },
+    include: {
+      createdBy: true,
+      artist: true,
+      photos: true,
+      galleries: true,
+    },
+  });
 }
 
 export async function updateArtwork(
@@ -35,23 +55,47 @@ export async function updateArtwork(
     yearCreated?: number;
   }
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Artwork update not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.update({
+    where: { id },
+    data,
+  });
 }
 
 export async function claimArtwork(artworkId: string, artistId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Artwork claim not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.update({
+    where: { id: artworkId },
+    data: {
+      artistId,
+      claimStatus: "PENDING_APPROVAL",
+    },
+  });
 }
 
 export async function approveClaim(artworkId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Claim approval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.update({
+    where: { id: artworkId },
+    data: {
+      claimStatus: "CLAIMED",
+    },
+  });
 }
 
 export async function rejectClaim(artworkId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Claim rejection not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.update({
+    where: { id: artworkId },
+    data: {
+      claimStatus: "UNCLAIMED",
+      artistId: null,
+    },
+  });
 }
 
 export async function findNearbyArtworks(
@@ -59,8 +103,19 @@ export async function findNearbyArtworks(
   longitude: number,
   radiusMeters = PROXIMITY_RADIUS_METERS
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Nearby artworks search not yet implemented");
+  const prisma = await prismaClient();
+
+  const artworks = await prisma.artwork.findMany({
+    include: {
+      createdBy: true,
+      artist: true,
+    },
+  });
+
+  return artworks.filter((artwork) =>
+    calculateDistance(latitude, longitude, artwork.latitude, artwork.longitude) <=
+    radiusMeters
+  );
 }
 
 export async function getArtworksInBounds(
@@ -70,36 +125,139 @@ export async function getArtworksInBounds(
   maxLon: number,
   limit = 100
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Artworks in bounds retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.findMany({
+    where: {
+      latitude: {
+        gte: minLat,
+        lte: maxLat,
+      },
+      longitude: {
+        gte: minLon,
+        lte: maxLon,
+      },
+    },
+    take: limit,
+    include: {
+      createdBy: true,
+      artist: true,
+    },
+  });
 }
 
 export async function getArtworksByArtist(artistId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Artist artworks retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.findMany({
+    where: {
+      artistId,
+      claimStatus: "CLAIMED",
+    },
+    orderBy: {
+      yearCreated: "desc",
+    },
+    include: {
+      createdBy: true,
+      artist: true,
+    },
+  });
 }
 
 export async function getArtworksByYear(year: number) {
-  // TODO: Implement with Prisma
-  throw new Error("Artworks by year retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.findMany({
+    where: {
+      yearCreated: year,
+      claimStatus: "CLAIMED",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      createdBy: true,
+      artist: true,
+    },
+  });
 }
 
 export async function getYearsWithArtworks() {
-  // TODO: Implement with Prisma
-  throw new Error("Years with artworks retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  const artworks = await prisma.artwork.findMany({
+    where: {
+      yearCreated: {
+        not: null,
+      },
+      claimStatus: "CLAIMED",
+    },
+    select: {
+      yearCreated: true,
+    },
+  });
+
+  const years = [...new Set(artworks.map((a) => a.yearCreated))]
+    .filter((year) => year !== null)
+    .sort((a, b) => (b as number) - (a as number));
+
+  return years;
 }
 
 export async function getArtworkCountByYear(year: number) {
-  // TODO: Implement with Prisma
-  throw new Error("Artwork count by year retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.count({
+    where: {
+      yearCreated: year,
+      claimStatus: "CLAIMED",
+    },
+  });
 }
 
 export async function listArtists(limit = 100) {
-  // TODO: Implement with Prisma
-  throw new Error("Artists list retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  const artists = await prisma.user.findMany({
+    where: {
+      role: "ARTIST",
+    },
+    take: limit,
+    orderBy: {
+      name: "asc",
+    },
+    include: {
+      claimedArtworks: {
+        where: {
+          claimStatus: "CLAIMED",
+        },
+      },
+    },
+  });
+
+  return artists.map((artist) => ({
+    ...artist,
+    artworkCount: artist.claimedArtworks.length,
+  }));
 }
 
 export async function getRecentArtworks(limit = 20) {
-  // TODO: Implement with Prisma
-  throw new Error("Recent artworks retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.artwork.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: limit,
+    include: {
+      createdBy: true,
+      artist: true,
+      photos: {
+        take: 1,
+        orderBy: {
+          takenAt: "desc",
+        },
+      },
+    },
+  });
 }
