@@ -20,6 +20,18 @@ export async function createArtwork(
 
   const prisma = await prismaClient();
 
+  // Debug: Check if user exists
+  console.log("[ARTWORK] Creating artwork for user:", createdById);
+  const userExists = await prisma.user.findUnique({
+    where: { id: createdById },
+    select: { id: true, email: true },
+  });
+  console.log("[ARTWORK] User exists in DB:", userExists);
+
+  if (!userExists) {
+    throw new Error(`User with ID ${createdById} not found in database`);
+  }
+
   return prisma.artwork.create({
     data: {
       title,

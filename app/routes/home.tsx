@@ -1,12 +1,26 @@
 import { useRouteLoaderData } from "react-router";
+import type { Route } from "./+types/home";
 import { Navigation } from "../components/Navigation";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { GalleryGrid } from "../components/GalleryGrid";
+import { ArtworkCard } from "../components/ArtworkCard";
+import { getRecentArtworks } from "../lib/artworks.server";
+
+export const loader: Route.LoaderFunction = async () => {
+  try {
+    const artworks = await getRecentArtworks(20);
+    return { artworks };
+  } catch (error) {
+    console.error("[HOME] Error loading artworks:", error);
+    return { artworks: [] };
+  }
+};
 
 export default function HomePage() {
   const rootData = useRouteLoaderData("root") as any;
-  const artworks: any[] = [];
+  const loaderData = useRouteLoaderData("routes/home") as any;
+  const artworks = loaderData?.artworks ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -22,13 +36,23 @@ export default function HomePage() {
             Explore, share, and celebrate street art from around the world
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => (window.location.href = "/artwork/register")}
-            >
-              Register Artwork
-            </Button>
+            {rootData?.user ? (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => (window.location.href = "/artwork/register")}
+              >
+                📍 Pin a Mural
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => (window.location.href = "/auth/login")}
+              >
+                Sign In to Pin
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="lg"
@@ -47,23 +71,27 @@ export default function HomePage() {
 
           {artworks.length === 0 ? (
             <EmptyState
-              title="No artworks yet"
-              description="Be the first to register a street art piece and start building our community gallery!"
-              icon="🎨"
+              title="No murals pinned yet"
+              description="Be the first to pin a mural and start building our community gallery!"
+              icon="📍"
               action={{
-                label: "Register First Artwork",
-                onClick: () => (window.location.href = "/artwork/register"),
+                label: rootData?.user ? "Pin the First Mural" : "Sign In to Pin",
+                onClick: () => (window.location.href = rootData?.user ? "/artwork/register" : "/auth/login"),
               }}
             />
           ) : (
             <GalleryGrid columns={3} gap="md">
-              {artworks.map((artwork) => (
-                <div
+              {artworks.map((artwork: any) => (
+                <ArtworkCard
                   key={artwork.id}
+                  id={artwork.id}
+                  title={artwork.title}
+                  imageUrl={artwork.photos?.[0]?.photoUrl}
+                  artistName={artwork.artist?.name}
+                  claimStatus={artwork.claimStatus}
+                  photoCount={artwork.photos?.length ?? 0}
                   onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
-                >
-                  {/* Artwork cards would go here */}
-                </div>
+                />
               ))}
             </GalleryGrid>
           )}

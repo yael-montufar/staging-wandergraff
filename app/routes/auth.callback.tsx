@@ -2,6 +2,7 @@ import { type LoaderFunction, redirect } from "react-router";
 import { createClient } from "@supabase/supabase-js";
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
+import { prismaClient } from "~/lib/db.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const url = new URL(request.url);
@@ -40,6 +41,50 @@ export const loader: LoaderFunction = async ({ request }) => {
       }
 
       console.log("[CALLBACK] Session established");
+
+      // Create/upsert user in database
+      try {
+        const supabaseUser = data.session.user;
+        console.log("[CALLBACK] Supabase user data:", {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          metadata: supabaseUser.user_metadata
+        });
+
+        console.log("[CALLBACK] DATABASE_URL:", process.env.DATABASE_URL ? "✓ set" : "✗ missing");
+
+        const prisma = await prismaClient();
+        console.log("[CALLBACK] Prisma client initialized");
+
+        // Use Supabase user ID as the primary key
+        console.log("[CALLBACK] Attempting to upsert user:", supabaseUser.id);
+        const dbUser = await prisma.user.upsert({
+          where: { id: supabaseUser.id },
+          update: {
+            email: supabaseUser.email,
+            name: supabaseUser.user_metadata?.name || supabaseUser.email,
+          },
+          create: {
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            name: supabaseUser.user_metadata?.name || supabaseUser.email,
+            role: "REGULAR_USER",
+          },
+        });
+
+        console.log("[CALLBACK] ✓ User created/updated in database:", { id: dbUser.id, email: dbUser.email });
+      } catch (dbError) {
+        console.error("[CALLBACK] ✗ CRITICAL: Error creating/updating user in database");
+        console.error("[CALLBACK] Error details:", dbError);
+        // Log full error details
+        if (dbError instanceof Error) {
+          console.error("[CALLBACK] Error message:", dbError.message);
+          console.error("[CALLBACK] Error stack:", dbError.stack);
+        }
+        // For now, still allow auth to proceed so we can debug
+        // TODO: Make this fail the auth flow after debugging
+      }
+
       const response = redirect("/");
       response.headers.set(
         "Set-Cookie",
@@ -86,7 +131,39 @@ export default function CallbackPage() {
 
         if (data.session) {
           console.log("[CALLBACK] Session established via OAuth");
+          console.log("[CALLBACK] User from session:", {
+            id: data.session.user.id,
+            email: data.session.user.email
+          });
+
+          // Set the auth cookie
           document.cookie = `auth-token=${data.session.access_token}; path=/; SameSite=Lax`;
+
+          // Create/upsert user in database via API call
+          console.log("[CALLBACK] Creating user in database via API...");
+          try {
+            const response = await fetch("/api/auth/create-user", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: data.session.user.id,
+                email: data.session.user.email,
+                name: data.session.user.user_metadata?.name || data.session.user.email,
+              }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+              console.error("[CALLBACK] Failed to create user:", result);
+              // Don't fail auth, just log the error
+            } else {
+              console.log("[CALLBACK] ✓ User created in database:", result);
+            }
+          } catch (apiError) {
+            console.error("[CALLBACK] Error calling create-user API:", apiError);
+            // Don't fail auth if API call fails
+          }
+
           navigate("/");
         } else {
           console.error("[CALLBACK] No session in fragment");
