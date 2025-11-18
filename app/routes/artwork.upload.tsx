@@ -1,13 +1,12 @@
-import { type ActionFunction, redirect, useActionData } from "react-router";
+import { redirect, useRouteLoaderData } from "react-router";
 import { type LoaderFunction } from "react-router";
 import { useRef, useState } from "react";
-import { getAuthTokenFromCookie, getUserFromToken } from "~/lib/auth.server";
+import { getAuthTokenFromCookie } from "~/lib/auth.server";
 import { createPhotoPreview } from "~/lib/exif.client";
+import { convertMobileImage, formatFileSize } from "~/lib/image-conversion.client";
 
-type ActionData = {
-  error?: string;
-  success?: boolean;
-  photoId?: string;
+type LoaderData = {
+  artworkId: string;
 };
 
 export const loader: LoaderFunction = ({ request }) => {
@@ -27,72 +26,57 @@ export const loader: LoaderFunction = ({ request }) => {
   return { artworkId };
 };
 
-export const action: ActionFunction = async ({ request }): Promise<ActionData | Response> => {
-  if (request.method !== "POST") {
-    return { error: "Method not allowed" };
-  }
-
-  const cookieHeader = request.headers.get("cookie");
-  const token = getAuthTokenFromCookie(cookieHeader);
-  const user = getUserFromToken(token);
-
-  if (!user) {
-    return { error: "Not authenticated" };
-  }
-
-  const formData = await request.formData();
-  const photoUrl = formData.get("photoUrl") as string;
-  const artworkId = formData.get("artworkId") as string;
-  const isPrivate = formData.get("isPrivate") === "true";
-
-  if (!photoUrl || !artworkId) {
-    return { error: "Photo URL and artwork ID are required" };
-  }
-
-  try {
-    const { createPhoto } = await import("~/lib/photos.server");
-
-    const photo = await createPhoto(
-      user.id,
-      photoUrl,
-      new Date(),
-      {
-        artworkId: isPrivate ? undefined : artworkId,
-        isPrivate,
-      }
-    );
-
-    return { success: true, photoId: photo.id };
-  } catch (error) {
-    console.error("[UPLOAD] Upload error:", error);
-    return {
-      error: error instanceof Error ? error.message : "Failed to upload photo",
-    };
-  }
-};
+// Upload logic moved to /api/artwork/upload route
 
 export default function UploadPhotoPage() {
-  const actionData = useActionData<ActionData>();
+  const loaderData = useRouteLoaderData("routes/artwork.upload") as LoaderData;
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
   const [isPrivatePhoto, setIsPrivatePhoto] = useState(false);
 
-  // Get artwork ID from query params
-  const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const artworkId = params.get("artworkId") || "";
+  // Get artwork ID from loader data (validated in loader)
+  const artworkId = loaderData?.artworkId || "";
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    setFile(selectedFile);
     setLoading(true);
 
     try {
-      const preview = await createPhotoPreview(selectedFile);
+      // Convert mobile image formats (HEIC, etc.) to web-friendly JPEG
+      console.log("[UPLOAD] Converting image format...");
+      const convertedFile = await convertMobileImage(selectedFile, {
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 0.85,
+      });
+
+      setFile(convertedFile);
+      console.log(
+        "[UPLOAD] File converted:",
+        selectedFile.name,
+        `(${formatFileSize(selectedFile.size)})`,
+        "→",
+        convertedFile.name,
+        `(${formatFileSize(convertedFile.size)})`
+      );
+
+      // Create preview from converted file
+      const preview = await createPhotoPreview(convertedFile);
       setPhotoUrl(preview);
+    } catch (error) {
+      console.error("[UPLOAD] Error converting image:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to process image. Please try a different file."
+      );
+      setFile(null);
+      setPhotoUrl("");
     } finally {
       setLoading(false);
     }
@@ -100,29 +84,50 @@ export default function UploadPhotoPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (file && formRef.current) {
-      formRef.current.submit();
+
+    if (!file) {
+      return;
     }
+
+    setLoading(true);
+    console.log("[UPLOAD] Submitting form with converted file:", file.name, "artworkId:", artworkId);
+
+    // Create FormData with the CONVERTED file (not the original)
+    const formData = new FormData();
+    formData.append("photoFile", file); // This is the converted file from state
+    formData.append("artworkId", artworkId);
+    formData.append("isPrivateValue", isPrivatePhoto.toString());
+
+    // Submit via fetch to dedicated API endpoint
+    fetch("/api/artwork/upload", {
+      method: "POST",
+      body: formData,
+    })
+      .then((res) => {
+        console.log("[UPLOAD] Response status:", res.status);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("[UPLOAD] Response data:", data);
+        if (data.success) {
+          console.log("[UPLOAD] Success! Converted file uploaded. Redirecting...");
+          window.location.href = `/artwork/${artworkId}`;
+        } else {
+          console.error("[UPLOAD] Server error:", data.error);
+          alert(data.error || "Upload failed");
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("[UPLOAD] Fetch error:", err);
+        alert("Upload error: " + (err instanceof Error ? err.message : "Unknown error"));
+        setLoading(false);
+      });
   };
 
-  if (actionData?.success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="rounded-full bg-green-100 p-6 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Photo Uploaded!</h2>
-          <p className="text-gray-600 mb-6">Your photo has been successfully added to the artwork.</p>
-          <a href={`/artwork/${artworkId}`} className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
-            View Artwork
-          </a>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
@@ -131,15 +136,10 @@ export default function UploadPhotoPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">📸 Add Photo</h1>
           <p className="text-gray-600 mb-6">Share your photo of this artwork.</p>
 
-          {actionData?.error && (
-            <div className="rounded-md bg-red-50 p-4 border border-red-200 mb-6">
-              <p className="text-sm font-medium text-red-800">{actionData.error}</p>
-            </div>
-          )}
-
-          <form ref={formRef} method="POST" onSubmit={handleSubmit} className="space-y-6">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition">
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleFileSelect}
@@ -181,15 +181,13 @@ export default function UploadPhotoPage() {
                     checked={isPrivatePhoto}
                     onChange={(e) => setIsPrivatePhoto(e.target.checked)}
                     className="h-4 w-4 text-blue-600 rounded"
+                    name="isPrivate"
                   />
                   <label htmlFor="isPrivate" className="text-sm text-gray-700">
                     Keep photo private (don't show in gallery)
                   </label>
                 </div>
 
-                <input type="hidden" name="photoUrl" value={photoUrl} />
-                <input type="hidden" name="artworkId" value={artworkId} />
-                <input type="hidden" name="isPrivate" value={isPrivatePhoto.toString()} />
 
                 <div className="flex gap-4 pt-4">
                   <button
@@ -197,6 +195,9 @@ export default function UploadPhotoPage() {
                     onClick={() => {
                       setFile(null);
                       setPhotoUrl("");
+                      // Reset file input
+                      const fileInput = document.getElementById("photo-input") as HTMLInputElement;
+                      if (fileInput) fileInput.value = "";
                     }}
                     className="flex-1 bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 font-medium"
                   >

@@ -253,6 +253,123 @@ To prevent duplicate artwork entries, we'll implement a dedup detection algorith
 
 ---
 
+## Mobile Image Format Handling
+
+### Decision: Client-Side Conversion of HEIC/Mobile Formats
+**Date:** Development phase
+**Status:** ✅ Implemented
+
+**Problem:**
+- iPhone users upload HEIC format images (Apple's proprietary format)
+- Browsers don't natively display HEIC
+- Shows as broken image links
+- Need to support mobile users without friction
+
+**Solution: Client-Side Conversion**
+- Use `heic2any` library to convert HEIC → JPEG in browser
+- Also optimize images: compress, resize, handle EXIF orientation
+- Happens instantly before upload (better UX than server conversion)
+- Works offline, no server load
+
+**Supported Conversions:**
+- HEIC/HEIF (iPhone) → JPEG
+- Large images → downsampled to max 2048×2048
+- Automatic aspect ratio preservation
+- Quality: 85% JPEG compression (good balance)
+
+**How It Works:**
+1. User selects HEIC image from iPhone
+2. `handleFileSelect` calls `convertMobileImage()`
+3. Library converts HEIC to JPEG blob
+4. Canvas optimization: resize, compress, handle orientation
+5. Result: properly formatted JPEG file
+6. Preview shown, then uploaded as normal
+
+**Benefits:**
+- ✅ iPhone users can upload directly (no manual conversion)
+- ✅ Smaller file sizes (optimized on client)
+- ✅ Faster uploads
+- ✅ Works offline
+- ✅ Better UX than server-side conversion
+
+**Android Considerations:**
+- Most Android phones output JPEG/H.264 natively
+- Some older devices might have issues - Canvas optimization handles this
+- Image size optimization benefits all mobile devices
+- EXIF orientation is mostly auto-corrected by modern phones
+
+**Technical Details:**
+- File: `app/lib/image-conversion.client.ts`
+- Library: `heic2any` (npm package)
+- Canvas operations: resize, quality reduction, orientation
+- Format detection: checks MIME type and filename extension
+
+**Limitations:**
+- Requires JavaScript (all users have this)
+- Client-side processing is slower for very large files (but we resize to 2048px)
+- Older browsers might not have Canvas support (acceptable for MVP)
+
+**Future Enhancements:**
+- Add full EXIF orientation handling with `piexifjs`
+- Support animated HEIC files
+- Add image cropping/rotation UI
+- Implement progressive JPEG for faster preview
+
+---
+
+## Image Storage Strategy
+
+### Decision: Local File System Storage for Development
+**Date:** Development phase
+**Status:** ✅ Implemented
+
+**Approach:**
+- Store uploaded images on local disk (`/public/uploads`)
+- Create a static file serving route (`/uploads/:filename`)
+- Store file paths in database instead of base64 data URLs
+- Generate unique filenames with timestamps and random IDs
+
+**Why Not Base64?**
+- Base64 increases database size significantly
+- Slower queries with large data URLs embedded
+- Memory inefficient
+- Better to store files separately and reference them
+
+**Why Not Supabase Storage Yet?**
+- Development/MVP phase doesn't need cloud infrastructure
+- Docker container provides sufficient storage
+- No external dependencies or costs during development
+- Easy to migrate to Supabase Storage later (just change `saveUploadedFile` function)
+
+**How It Works:**
+1. User selects file in upload form
+2. Client sends actual File object via FormData (not base64)
+3. Server receives file via `saveUploadedFile()`
+4. File saved to `/public/uploads/` with unique name
+5. Public URL stored in database (e.g., `/uploads/1234567890-abc123def.jpg`)
+6. Static route `uploads.$filename.tsx` serves files with proper headers
+
+**Implementation Details:**
+- File: `app/lib/file-upload.server.ts` - handles file I/O
+- Route: `app/routes/uploads.$filename.tsx` - serves uploaded files
+- Form: Changed from sending base64 to sending actual File object
+- Action: Updated to call `saveUploadedFile()` instead of storing data URL
+
+**Security Considerations:**
+- Filename validation (unique IDs prevent collisions)
+- Path traversal protection (filepath must be within `/public/uploads`)
+- No execution allowed in uploads directory
+- Cache headers set for long-term storage
+
+**Future Migration Path:**
+To move to Supabase Storage (production):
+1. Create new function `saveUploadedFileToSupabase()`
+2. Update action to call new function
+3. Return Supabase public URL instead of local path
+4. Everything else stays the same (database structure, display code)
+
+---
+
 ## Development Environment Setup
 
 ### Commands & Configuration
@@ -361,6 +478,8 @@ When moving to production:
 | 1.0 | Initial | Documented architecture, EXIF removal, terminology, env setup |
 | 1.1 | Session 2 | Added attribution removal, street-based dedup detection strategy |
 | 1.2 | Session 2 | Added official vs community photo galleries structure |
+| 1.3 | Session 2 | Added local file storage strategy for images |
+| 1.4 | Session 2 | Added mobile image format conversion (HEIC→JPEG, optimization) |
 
 ---
 
