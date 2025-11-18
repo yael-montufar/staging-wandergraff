@@ -1,4 +1,4 @@
-import { prisma } from "./db.server";
+// Database operations are deferred until Prisma is properly integrated
 
 export async function createPhoto(
   userId: string,
@@ -14,60 +14,13 @@ export async function createPhoto(
     metadata?: Record<string, any>;
   }
 ) {
-  const photo = await prisma.photo.create({
-    data: {
-      userId,
-      photoUrl,
-      thumbnailUrl: options?.thumbnailUrl,
-      takenAt,
-      artworkId: options?.artworkId,
-      isPrivate: options?.isPrivate ?? false,
-      exifLatitude: options?.exifLatitude,
-      exifLongitude: options?.exifLongitude,
-      exifAltitude: options?.exifAltitude,
-      metadata: options?.metadata,
-    },
-  });
-
-  // If photo is not private and has artwork, add to default gallery
-  if (!options?.isPrivate && options?.artworkId) {
-    const defaultGallery = await prisma.gallery.findUnique({
-      where: {
-        artworkId_type: {
-          artworkId: options.artworkId,
-          type: "DEFAULT",
-        },
-      },
-    });
-
-    if (defaultGallery) {
-      await prisma.galleryPhoto.create({
-        data: {
-          galleryId: defaultGallery.id,
-          photoId: photo.id,
-          order: 0,
-        },
-      });
-    }
-  }
-
-  return photo;
+  // TODO: Implement with Prisma
+  throw new Error("Photo creation not yet implemented");
 }
 
 export async function getPhoto(id: string) {
-  return prisma.photo.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatarUrl: true,
-        },
-      },
-      artwork: true,
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photo retrieval not yet implemented");
 }
 
 export async function updatePhoto(
@@ -76,22 +29,13 @@ export async function updatePhoto(
     isPrivate?: boolean;
   }
 ) {
-  return prisma.photo.update({
-    where: { id },
-    data,
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photo update not yet implemented");
 }
 
 export async function deletePhoto(id: string) {
-  // Delete from galleries first
-  await prisma.galleryPhoto.deleteMany({
-    where: { photoId: id },
-  });
-
-  // Delete photo
-  return prisma.photo.delete({
-    where: { id },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photo deletion not yet implemented");
 }
 
 export async function getPhotosByArtwork(
@@ -101,35 +45,13 @@ export async function getPhotosByArtwork(
     sortBy?: "recent" | "oldest";
   }
 ) {
-  return prisma.photo.findMany({
-    where: {
-      artworkId,
-      isPrivate: options?.includePrivate ? undefined : false,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatarUrl: true,
-        },
-      },
-    },
-    orderBy: {
-      takenAt: options?.sortBy === "oldest" ? "asc" : "desc",
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photos by artwork retrieval not yet implemented");
 }
 
 export async function getPhotosByUser(userId: string) {
-  return prisma.photo.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      uploadedAt: "desc",
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photos by user retrieval not yet implemented");
 }
 
 export async function getPhotosByGallery(
@@ -138,27 +60,8 @@ export async function getPhotosByGallery(
     sortBy?: "order" | "date";
   }
 ) {
-  const galleryPhotos = await prisma.galleryPhoto.findMany({
-    where: { galleryId },
-    include: {
-      photo: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: {
-      order: "asc",
-    },
-  });
-
-  return galleryPhotos.map((gp) => gp.photo);
+  // TODO: Implement with Prisma
+  throw new Error("Photos by gallery retrieval not yet implemented");
 }
 
 export async function addPhotoToGallery(
@@ -166,99 +69,37 @@ export async function addPhotoToGallery(
   photoId: string,
   order?: number
 ) {
-  // Get max order if not specified
-  if (order === undefined) {
-    const maxOrder = await prisma.galleryPhoto.findFirst({
-      where: { galleryId },
-      orderBy: { order: "desc" },
-      select: { order: true },
-    });
-    order = (maxOrder?.order ?? -1) + 1;
-  }
-
-  return prisma.galleryPhoto.create({
-    data: {
-      galleryId,
-      photoId,
-      order,
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Adding photo to gallery not yet implemented");
 }
 
 export async function removePhotoFromGallery(galleryId: string, photoId: string) {
-  return prisma.galleryPhoto.delete({
-    where: {
-      galleryId_photoId: {
-        galleryId,
-        photoId,
-      },
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Removing photo from gallery not yet implemented");
 }
 
 export async function reorderGalleryPhotos(
   galleryId: string,
   photoIds: string[]
 ) {
-  const updates = photoIds.map((photoId, index) =>
-    prisma.galleryPhoto.update({
-      where: {
-        galleryId_photoId: {
-          galleryId,
-          photoId,
-        },
-      },
-      data: {
-        order: index,
-      },
-    })
-  );
-
-  return Promise.all(updates);
+  // TODO: Implement with Prisma
+  throw new Error("Reordering gallery photos not yet implemented");
 }
 
 export async function getRecentPhotos(
   artworkId: string,
   limit = 10
 ) {
-  return prisma.photo.findMany({
-    where: {
-      artworkId,
-      isPrivate: false,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatarUrl: true,
-        },
-      },
-    },
-    orderBy: {
-      uploadedAt: "desc",
-    },
-    take: limit,
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Recent photos retrieval not yet implemented");
 }
 
 export async function getPhotoCount(artworkId: string) {
-  return prisma.photo.count({
-    where: {
-      artworkId,
-      isPrivate: false,
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Photo count retrieval not yet implemented");
 }
 
 export async function getUserPrivatePhotos(userId: string) {
-  return prisma.photo.findMany({
-    where: {
-      userId,
-      isPrivate: true,
-    },
-    orderBy: {
-      uploadedAt: "desc",
-    },
-  });
+  // TODO: Implement with Prisma
+  throw new Error("Private photos retrieval not yet implemented");
 }

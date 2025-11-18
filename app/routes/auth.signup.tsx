@@ -1,5 +1,5 @@
 import { type ActionFunction, redirect } from "react-router";
-import { createUserAccount } from "../lib/auth.server";
+import { supabaseAdmin } from "../lib/supabase.server";
 
 export const action: ActionFunction = async ({ request }) => {
   if (request.method !== "POST") {
@@ -10,19 +10,28 @@ export const action: ActionFunction = async ({ request }) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const name = formData.get("name") as string;
-  const isArtist = formData.get("isArtist") === "on";
 
   if (!email || !password || !name) {
     return { error: "Email, password, and name are required" };
   }
 
   try {
-    await createUserAccount(
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      name,
-      isArtist ? "ARTIST" : "REGULAR_USER"
-    );
+      email_confirm: true,
+      user_metadata: {
+        name,
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (!data.user) {
+      return { error: "Failed to create user" };
+    }
 
     // Redirect to login
     return redirect("/auth/login");

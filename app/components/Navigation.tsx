@@ -16,6 +16,18 @@ export function Navigation() {
             >
               Home
             </a>
+            <a
+              href="/auth/login"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+            >
+              Sign In
+            </a>
+            <a
+              href="/auth/signup"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Sign Up
+            </a>
           </div>
         </div>
       </div>

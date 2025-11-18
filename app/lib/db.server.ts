@@ -1,17 +1,16 @@
-import { PrismaClient } from "@prisma/client";
+// Prisma client initialization - deferred to avoid SSR issues
+// Import lazily when actually needed
 
-let prisma: PrismaClient;
+export async function prismaClient() {
+  const { PrismaClient } = await import("../../generated/prisma");
 
-if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient();
-} else {
   let globalWithPrisma = global as typeof globalThis & {
-    prisma: PrismaClient;
+    prisma: any;
   };
+
   if (!globalWithPrisma.prisma) {
     globalWithPrisma.prisma = new PrismaClient();
   }
-  prisma = globalWithPrisma.prisma;
-}
 
-export { prisma };
+  return globalWithPrisma.prisma;
+}
