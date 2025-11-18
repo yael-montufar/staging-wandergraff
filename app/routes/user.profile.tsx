@@ -83,16 +83,11 @@ export const action: Route.ActionFunction = async ({ request }) => {
       const artworkId = formData.get("artworkId") as string;
 
       try {
-        // If making a private photo public, require artwork selection
         if (currentPrivate && !artworkId) {
           return { error: "Please select an artwork to associate with this photo" };
         }
 
-        // Update photo: toggle privacy and set/keep artwork association
         const updateData: any = { isPrivate: !currentPrivate };
-
-        // When making private (currentPrivate=false, toggling to true), keep the artwork
-        // When making public (currentPrivate=true, toggling to false), set the artwork
         if (artworkId) {
           updateData.artworkId = artworkId;
         }
@@ -133,6 +128,55 @@ export const action: Route.ActionFunction = async ({ request }) => {
   return null;
 };
 
+function PhotoCard({ photo, onMakePublic, onDelete }: any) {
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+      <div className="aspect-square bg-gray-100 overflow-hidden">
+        <img
+          src={photo.photoUrl}
+          alt="Photo"
+          className="w-full h-full object-cover hover:scale-105 transition"
+        />
+      </div>
+      <div className="p-4">
+        <p className="text-xs text-gray-500 mb-3">
+          Uploaded {new Date(photo.uploadedAt).toLocaleDateString()}
+        </p>
+        <div className="flex gap-2">
+          {onMakePublic ? (
+            onMakePublic(photo)
+          ) : (
+            <Form method="post" className="flex-1">
+              <input type="hidden" name="_action" value="toggle-privacy" />
+              <input type="hidden" name="photoId" value={photo.id} />
+              <input type="hidden" name="isPrivate" value="false" />
+              {photo.artworkId && (
+                <input type="hidden" name="artworkId" value={photo.artworkId} />
+              )}
+              <button
+                type="submit"
+                className="w-full text-sm bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 transition"
+              >
+                Make Private
+              </button>
+            </Form>
+          )}
+          <Form method="post" className="flex-1">
+            <input type="hidden" name="_action" value="delete-photo" />
+            <input type="hidden" name="photoId" value={photo.id} />
+            <button
+              type="submit"
+              className="w-full text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition"
+            >
+              Delete
+            </button>
+          </Form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UserDashboardPage() {
   const rootData = useRouteLoaderData("root") as any;
   const loaderData = useRouteLoaderData("routes/user.profile") as LoaderData;
@@ -145,23 +189,42 @@ export default function UserDashboardPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedArtwork, setSelectedArtwork] = useState<any | null>(null);
 
-  // Debounce search input to avoid rapid requests while typing
   const debouncedSearchQuery = useDebounce(searchArtwork, 300);
 
   const privatePhotos = allPhotos.filter((p: any) => p.isPrivate);
   const publicPhotos = allPhotos.filter((p: any) => !p.isPrivate);
 
-  // Reload page when toggle-privacy action succeeds
+  // Group photos by artwork
+  const groupPhotosByArtwork = (photos: any[]) => {
+    const grouped: { [key: string]: any[] } = {};
+    const unlinked: any[] = [];
+
+    photos.forEach((photo) => {
+      if (photo.artwork) {
+        const artworkId = photo.artwork.id;
+        if (!grouped[artworkId]) {
+          grouped[artworkId] = [];
+        }
+        grouped[artworkId].push(photo);
+      } else {
+        unlinked.push(photo);
+      }
+    });
+
+    return { grouped, unlinked };
+  };
+
+  const { grouped: groupedPrivate, unlinked: unlinkedPrivate } = groupPhotosByArtwork(privatePhotos);
+  const { grouped: groupedPublic, unlinked: unlinkedPublic } = groupPhotosByArtwork(publicPhotos);
+
   useEffect(() => {
     if (actionData?.success && selectedPhotoForPublishing) {
-      // Reload page to refresh photo list and reset state
       setTimeout(() => {
         window.location.href = window.location.href;
       }, 500);
     }
   }, [actionData?.success, selectedPhotoForPublishing]);
 
-  // Perform search when debounced query changes
   useEffect(() => {
     if (debouncedSearchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -235,12 +298,8 @@ export default function UserDashboardPage() {
         {/* Photos Section */}
         <section id="photos" className="mb-16">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              My Photos
-            </h2>
-            <p className="text-gray-600">
-              Manage your uploaded photos and control their visibility
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">My Photos</h2>
+            <p className="text-gray-600">Manage your uploaded photos and control their visibility</p>
           </div>
 
           {allPhotos.length === 0 ? (
@@ -253,79 +312,102 @@ export default function UserDashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-10">
               {/* Private Photos */}
               {privatePhotos.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                     <span className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></span>
                     Private Photos ({privatePhotos.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {privatePhotos.map((photo: any) => (
-                      <div
-                        key={photo.id}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition"
-                      >
-                        <div className="aspect-square bg-gray-100 overflow-hidden">
-                          <img
-                            src={photo.photoUrl}
-                            alt="Photo"
-                            className="w-full h-full object-cover hover:scale-105 transition"
-                          />
-                        </div>
-                        <div className="p-4">
-                          <p className="text-xs text-gray-500 mb-3">
-                            Uploaded {new Date(photo.uploadedAt).toLocaleDateString()}
-                          </p>
-                          {photo.artwork && (
-                            <p className="text-sm font-medium text-gray-900 mb-3">
-                              {photo.artwork.title}
-                            </p>
-                          )}
-                          <div className="flex gap-2">
-                            {photo.artworkId ? (
-                              // If already linked to artwork, toggle directly
-                              <Form method="post" className="flex-1">
-                                <input type="hidden" name="_action" value="toggle-privacy" />
-                                <input type="hidden" name="photoId" value={photo.id} />
-                                <input type="hidden" name="isPrivate" value="true" />
-                                <input type="hidden" name="artworkId" value={photo.artworkId} />
+
+                  <div className="space-y-8">
+                    {/* Unlinked Private Photos */}
+                    {unlinkedPrivate.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-4 italic">
+                          Not linked to artwork
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {unlinkedPrivate.map((photo: any) => (
+                            <PhotoCard
+                              key={photo.id}
+                              photo={photo}
+                              onMakePublic={(photo: any) => (
                                 <button
-                                  type="submit"
-                                  className="w-full text-sm bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition"
+                                  onClick={() => {
+                                    setSelectedPhotoForPublishing(photo.id);
+                                    setSearchArtwork("");
+                                    setSearchResults([]);
+                                    setSelectedArtwork(null);
+                                  }}
+                                  className="flex-1 text-sm bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition"
                                 >
                                   Make Public
                                 </button>
-                              </Form>
-                            ) : (
-                              // If not linked, show modal to select artwork
-                              <button
-                                onClick={() => {
-                                  setSelectedPhotoForPublishing(photo.id);
-                                  setSearchArtwork("");
-                                  setSearchResults([]);
-                                  setSelectedArtwork(null);
-                                }}
-                                className="flex-1 text-sm bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition"
-                              >
-                                Make Public
-                              </button>
-                            )}
-                            <Form method="post" className="flex-1">
-                              <input type="hidden" name="_action" value="delete-photo" />
-                              <input type="hidden" name="photoId" value={photo.id} />
-                              <button
-                                type="submit"
-                                className="w-full text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition"
-                              >
-                                Delete
-                              </button>
-                            </Form>
-                          </div>
+                              )}
+                            />
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Grouped by Artwork */}
+                    {Object.entries(groupedPrivate).map(([artworkId, photos]: [string, any[]]) => {
+                      const artwork = photos[0]?.artwork;
+                      return (
+                        <div key={artworkId}>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                            {artwork?.title || "Unknown Artwork"}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {photos.map((photo: any) => (
+                              <div
+                                key={photo.id}
+                                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition"
+                              >
+                                <div className="aspect-square bg-gray-100 overflow-hidden">
+                                  <img
+                                    src={photo.photoUrl}
+                                    alt="Photo"
+                                    className="w-full h-full object-cover hover:scale-105 transition"
+                                  />
+                                </div>
+                                <div className="p-4">
+                                  <p className="text-xs text-gray-500 mb-3">
+                                    Uploaded {new Date(photo.uploadedAt).toLocaleDateString()}
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Form method="post" className="flex-1">
+                                      <input type="hidden" name="_action" value="toggle-privacy" />
+                                      <input type="hidden" name="photoId" value={photo.id} />
+                                      <input type="hidden" name="isPrivate" value="true" />
+                                      <input type="hidden" name="artworkId" value={photo.artworkId} />
+                                      <button
+                                        type="submit"
+                                        className="w-full text-sm bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition"
+                                      >
+                                        Make Public
+                                      </button>
+                                    </Form>
+                                    <Form method="post" className="flex-1">
+                                      <input type="hidden" name="_action" value="delete-photo" />
+                                      <input type="hidden" name="photoId" value={photo.id} />
+                                      <button
+                                        type="submit"
+                                        className="w-full text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition"
+                                      >
+                                        Delete
+                                      </button>
+                                    </Form>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -333,64 +415,47 @@ export default function UserDashboardPage() {
               {/* Public Photos */}
               {publicPhotos.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                     <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
                     Public Photos ({publicPhotos.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {publicPhotos.map((photo: any) => (
-                      <div
-                        key={photo.id}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition"
-                      >
-                        <div className="aspect-square bg-gray-100 overflow-hidden">
-                          <img
-                            src={photo.photoUrl}
-                            alt="Photo"
-                            className="w-full h-full object-cover hover:scale-105 transition"
-                          />
-                        </div>
-                        <div className="p-4">
-                          <p className="text-xs text-gray-500 mb-3">
-                            Uploaded {new Date(photo.uploadedAt).toLocaleDateString()}
-                          </p>
-                          {photo.artwork && (
-                            <a
-                              href={`/artwork/${photo.artwork.id}`}
-                              className="text-sm font-medium text-gray-900 hover:text-blue-600 mb-3 block"
-                            >
-                              {photo.artwork.title}
-                            </a>
-                          )}
-                          <div className="flex gap-2">
-                            <Form method="post" className="flex-1">
-                              <input type="hidden" name="_action" value="toggle-privacy" />
-                              <input type="hidden" name="photoId" value={photo.id} />
-                              <input type="hidden" name="isPrivate" value="false" />
-                              {photo.artworkId && (
-                                <input type="hidden" name="artworkId" value={photo.artworkId} />
-                              )}
-                              <button
-                                type="submit"
-                                className="w-full text-sm bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 transition"
-                              >
-                                Make Private
-                              </button>
-                            </Form>
-                            <Form method="post" className="flex-1">
-                              <input type="hidden" name="_action" value="delete-photo" />
-                              <input type="hidden" name="photoId" value={photo.id} />
-                              <button
-                                type="submit"
-                                className="w-full text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 transition"
-                              >
-                                Delete
-                              </button>
-                            </Form>
-                          </div>
+
+                  <div className="space-y-8">
+                    {/* Unlinked Public Photos */}
+                    {unlinkedPublic.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-4 italic">
+                          Not linked to artwork
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {unlinkedPublic.map((photo: any) => (
+                            <PhotoCard key={photo.id} photo={photo} />
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Grouped by Artwork */}
+                    {Object.entries(groupedPublic).map(([artworkId, photos]: [string, any[]]) => {
+                      const artwork = photos[0]?.artwork;
+                      return (
+                        <div key={artworkId}>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                            <a
+                              href={`/artwork/${artworkId}`}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              {artwork?.title || "Unknown Artwork"}
+                            </a>
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {photos.map((photo: any) => (
+                              <PhotoCard key={photo.id} photo={photo} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -402,23 +467,20 @@ export default function UserDashboardPage() {
         <section id="collections" className="mb-16">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                My Collections
-              </h2>
-              <p className="text-gray-600">
-                Create and manage curated collections of artworks
-              </p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">My Collections</h2>
+              <p className="text-gray-600">Create and manage curated collections of artworks</p>
             </div>
-            <a href="/collection/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+            <a
+              href="/collection/new"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
               + New Collection
             </a>
           </div>
 
           {collections.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <p className="text-gray-500 mb-4">
-                You haven't created any collections yet.
-              </p>
+              <p className="text-gray-500 mb-4">You haven't created any collections yet.</p>
               <a
                 href="/collection/new"
                 className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -433,13 +495,9 @@ export default function UserDashboardPage() {
                   key={collection.id}
                   className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
                 >
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {collection.name}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{collection.name}</h3>
                   {collection.description && (
-                    <p className="text-sm text-gray-600 mb-4">
-                      {collection.description}
-                    </p>
+                    <p className="text-sm text-gray-600 mb-4">{collection.description}</p>
                   )}
                   <p className="text-sm text-gray-500 mb-4">
                     {collection.items?.length || 0} artworks
@@ -447,9 +505,7 @@ export default function UserDashboardPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <span
                       className={`text-xs px-2 py-1 rounded ${
-                        collection.isPublic
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-700"
+                        collection.isPublic ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
                       }`}
                     >
                       {collection.isPublic ? "Public" : "Private"}
@@ -505,7 +561,6 @@ export default function UserDashboardPage() {
               className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="bg-gray-100 px-6 py-4 border-b flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Select Artwork</h2>
@@ -527,7 +582,6 @@ export default function UserDashboardPage() {
                 </button>
               </div>
 
-              {/* Search */}
               <div className="p-6 border-b">
                 <input
                   type="text"
@@ -538,7 +592,6 @@ export default function UserDashboardPage() {
                 />
               </div>
 
-              {/* Results */}
               <div className="flex-1 overflow-y-auto p-6">
                 {isSearching ? (
                   <p className="text-gray-500 text-center">Searching...</p>
@@ -564,17 +617,12 @@ export default function UserDashboardPage() {
                     ))}
                   </div>
                 ) : searchArtwork.trim().length === 0 ? (
-                  <p className="text-gray-500 text-center">
-                    Start typing to search for artworks
-                  </p>
+                  <p className="text-gray-500 text-center">Start typing to search for artworks</p>
                 ) : (
-                  <p className="text-gray-500 text-center">
-                    No artworks found
-                  </p>
+                  <p className="text-gray-500 text-center">No artworks found</p>
                 )}
               </div>
 
-              {/* Actions */}
               <div className="bg-gray-100 px-6 py-4 border-t flex gap-3 justify-end">
                 <button
                   onClick={() => {

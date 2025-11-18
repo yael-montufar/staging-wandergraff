@@ -7,6 +7,8 @@ type NavigationProps = {
     id: string;
     email: string;
     name?: string;
+    avatarUrl?: string;
+    role?: string;
   } | null;
 };
 

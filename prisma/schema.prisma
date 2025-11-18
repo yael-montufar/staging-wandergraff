@@ -50,6 +50,7 @@ model Artwork {
   description   String?
   latitude      Float
   longitude     Float
+  address       String?
   yearCreated   Int?
   claimStatus   ClaimStatus @default(UNCLAIMED)
   createdById   String

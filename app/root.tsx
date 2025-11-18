@@ -20,7 +20,7 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
 
   let userWithProfile = user;
 
-  // If user is authenticated, fetch their profile including avatar
+  // If user is authenticated, fetch their profile including avatar and role
   if (user) {
     try {
       const prisma = await prismaClient();
@@ -28,6 +28,7 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
         where: { id: user.id },
         select: {
           avatarUrl: true,
+          role: true,
         },
       });
 
@@ -35,6 +36,7 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
         userWithProfile = {
           ...user,
           avatarUrl: profile.avatarUrl,
+          role: profile.role,
         };
       }
     } catch (error) {

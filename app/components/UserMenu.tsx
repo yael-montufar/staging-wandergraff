@@ -6,6 +6,7 @@ type UserMenuProps = {
     email: string;
     name?: string;
     avatarUrl?: string;
+    role?: string;
   };
 };
 
@@ -65,7 +66,7 @@ export function UserMenu({ user }: UserMenuProps) {
 
           {/* Menu Items */}
           <a
-            href="/user/profile"
+            href={user.role === "ADMIN" ? "/admin/dashboard" : "/user/profile"}
             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
             onClick={() => setIsOpen(false)}
           >

@@ -257,7 +257,7 @@ To prevent duplicate artwork entries, we'll implement a dedup detection algorith
 
 ### Decision: Client-Side Conversion of HEIC/Mobile Formats
 **Date:** Development phase
-**Status:** ✅ Implemented
+**Status:** ��� Implemented
 
 **Problem:**
 - iPhone users upload HEIC format images (Apple's proprietary format)
@@ -677,6 +677,131 @@ Users need full control over their content. Dashboard provides single place to m
 
 ---
 
+## Simplified Artwork Pinning Flow
+
+### Decision: Location-Only Pinning with Automatic Address Display
+**Date:** Session 4
+**Status:** ✅ Implemented
+
+**Problem:**
+- Previous flow required users to provide Title, Year, and Description when pinning
+- This metadata should come from the actual artist who claims the work
+- Community members don't have accurate information about artworks
+- Form was intimidating with 4+ required fields
+
+**Solution:**
+- **Simplified Form:** Users only click map to select location
+- **Automatic Address:** Reverse geocoding shows street address instead of coordinates
+- **Placeholder Title:** System creates "Untitled Mural at [Address]" placeholder
+- **Artist Editing:** When artist claims artwork, they provide actual Title/Year/Description
+
+**Implementation Details:**
+- Added `address` field to Artwork schema (stores geocoded address)
+- Created `geocoding.server.ts` with Nominatim reverse geocoding
+- Modified `createArtwork()` to accept optional address and generate placeholder title
+- Updated `/artwork/register` form to remove Title/Year/Description inputs
+- Client-side geocoding shows address while user selects location
+
+**Deduplication with Address Detection:**
+- Added `findDuplicateArtworkNearby()` function (20m radius proximity check)
+- When pinning, system checks for existing nearby artworks
+- If found, shows modal with preview of nearby artwork
+- User can choose to: View the existing one, Cancel, or Create new
+- Prevents accidental duplicate pins on same block/street
+
+**Benefits:**
+- ✅ Lower friction for community members to contribute locations
+- ✅ Addresses are human-readable and useful (vs raw coordinates)
+- ✅ Prevents duplicate pins with friendly warning
+- ✅ Artists maintain control over actual metadata
+- ✅ System has accurate locations + addresses for all artworks
+
+**Geocoding Service:**
+- Using OpenStreetMap Nominatim (free, no API key)
+- Works offline in development
+- Integrates well with Leaflet
+- Provides street-level accuracy
+
+**Data Model:**
+```
+Artwork {
+  latitude: Float (original coordinates)
+  longitude: Float (original coordinates)
+  address: String? (geocoded address like "123 Main St, Los Angeles")
+  title: String (auto-generated placeholder until artist claims)
+  description: String? (empty until artist claims)
+  yearCreated: Int? (empty until artist claims)
+}
+```
+
+---
+
+## Admin Role & Pin Management
+
+### Decision: Admin Superuser Role (Separate from Artist/Regular User)
+**Date:** Session 4
+**Status:** ✅ Implemented
+
+**Problem:**
+- Need moderation capability to remove incorrectly pinned artworks
+- Users shouldn't have ability to delete their own pins (prevents regret cleanup)
+- Admin tools shouldn't mix with regular user UI (users shouldn't see hidden delete buttons)
+
+**Solution:**
+- **Separate Admin Role:** `UserRole.ADMIN` is a superuser role, distinct from `REGULAR_USER` and `ARTIST`
+- **Admin-Only Creation:** Admins can ONLY be created/set directly in database (no frontend signup)
+- **Admin Restrictions:** Admins cannot:
+  - Upload photos
+  - Create collections
+  - Claim artworks
+  - Have public profiles
+  - Participate as regular users
+
+**Admin Dashboard (`/admin/dashboard`):**
+- Separate, dedicated interface (no user dashboard features)
+- Grid of all artworks with:
+  - Search by title/address
+  - Filter by claim status (Unclaimed, Pending Approval, Claimed)
+  - Photo preview of each artwork
+  - Delete button for each pin
+  - Confirmation modal before deletion
+- Pagination for browsing large datasets
+- No ability to edit artwork metadata (only delete)
+
+**Authentication:**
+- Route gating: `/admin/dashboard` redirects non-admins to home
+- Navigation: Dashboard link routes to `/admin/dashboard` for ADMIN role, `/user/profile` for others
+
+**User Dashboard Enhancements:**
+- Photos organized by privacy status (Private/Public)
+- Nested grouping: Each status → Grouped by Artwork → Photos
+- Unlinked photos shown separately in "Not linked to artwork" section
+- Organization prevents scattered list of images
+
+**Data Model:**
+```
+User {
+  role: REGULAR_USER | ARTIST | ADMIN
+}
+
+Artwork {
+  // When admin deletes an artwork:
+  // - Photos are orphaned (artworkId set to null)
+  // - Collection items are deleted
+  // - Saves are deleted
+  // - Galleries are deleted
+  // - Artwork is deleted
+}
+```
+
+**Rationale:**
+- Strict separation keeps interface clean (no hidden features)
+- Dedicated admin dashboard prevents accidental user interaction with moderation tools
+- Orphaning photos instead of cascading delete preserves user content
+- Users requesting pin removal provides feedback loop (why did someone pin incorrectly?)
+
+---
+
 ## Document History
 
 | Version | Date | Key Changes |
@@ -687,6 +812,8 @@ Users need full control over their content. Dashboard provides single place to m
 | 1.3 | Session 2 | Added local file storage strategy for images |
 | 1.4 | Session 2 | Added mobile image format conversion (HEIC→JPEG, optimization) |
 | 1.5 | Session 3 | Added user profile system: dashboard, public profiles, collections, attribution |
+| 1.6 | Session 4 | Simplified pinning to location-only with auto-geocoding and dedup detection |
+| 1.7 | Session 4 | Added admin superuser role, pin management/deletion, enhanced user dashboard with photo nesting |
 
 ---
 

@@ -8,6 +8,18 @@ type ActionData = {
   error?: string;
   success?: boolean;
   artworkId?: string;
+  duplicateWarning?: boolean;
+  nearbyArtwork?: {
+    id: string;
+    title: string;
+    address?: string | null;
+    latitude: number;
+    longitude: number;
+    claimStatus: string;
+    photos: Array<{
+      photoUrl: string;
+    }>;
+  };
 };
 
 export const loader: LoaderFunction = ({ request }) => {
@@ -38,14 +50,13 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
   }
 
   const formData = await request.formData();
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
   const latitude = parseFloat(formData.get("latitude") as string);
   const longitude = parseFloat(formData.get("longitude") as string);
-  const yearCreated = formData.get("yearCreated") ? parseInt(formData.get("yearCreated") as string) : undefined;
+  const address = formData.get("address") as string;
+  const skipDupCheck = formData.get("skipDupCheck") === "true";
 
-  if (!title || isNaN(latitude) || isNaN(longitude)) {
-    return { error: "Title and coordinates are required" };
+  if (isNaN(latitude) || isNaN(longitude)) {
+    return { error: "Coordinates are required" };
   }
 
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
@@ -53,19 +64,34 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
   }
 
   try {
-    const { createArtwork } = await import("~/lib/artworks.server");
+    const { createArtwork, findDuplicateArtworkNearby } = await import("~/lib/artworks.server");
     
-    const artwork = await createArtwork(
-      title,
-      latitude,
-      longitude,
-      user.id,
-      {
-        description: description || undefined,
-        yearCreated,
+    // Check for nearby artworks (dedup detection)
+    if (!skipDupCheck) {
+      const nearby = await findDuplicateArtworkNearby(latitude, longitude);
+      
+      if (nearby) {
+        console.log("[REGISTER] Found nearby artwork:", nearby.id);
+        return {
+          duplicateWarning: true,
+          nearbyArtwork: {
+            id: nearby.id,
+            title: nearby.title,
+            address: nearby.address,
+            latitude: nearby.latitude,
+            longitude: nearby.longitude,
+            claimStatus: nearby.claimStatus,
+            photos: nearby.photos.map((p) => ({ photoUrl: p.photoUrl })),
+          },
+        };
       }
-    );
+    }
 
+    const artwork = await createArtwork(latitude, longitude, user.id, {
+      address: address || undefined,
+    });
+
+    console.log("[REGISTER] Created artwork:", artwork.id);
     return { success: true, artworkId: artwork.id };
   } catch (error) {
     console.error("[REGISTER] Error creating artwork:", error);
@@ -83,11 +109,11 @@ export default function RegisterArtworkPage() {
   const mapRef = useRef<MapInstance>(null);
   const [L, setL] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [yearCreated, setYearCreated] = useState(new Date().getFullYear().toString());
   const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [address, setAddress] = useState<string>("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [geocodingAddress, setGeocodingAddress] = useState<string>("");
+  const [showDupModal, setShowDupModal] = useState(false);
 
   // Initialize Leaflet
   useEffect(() => {
@@ -96,15 +122,36 @@ export default function RegisterArtworkPage() {
     });
   }, []);
 
+  // Reverse geocode when coordinates change
+  useEffect(() => {
+    if (selectedCoords && !address) {
+      reverseGeocodeCoordinates(selectedCoords.lat, selectedCoords.lng);
+    }
+  }, [selectedCoords]);
+
+  // Show duplicate warning if present in action data
+  useEffect(() => {
+    if (actionData?.duplicateWarning) {
+      setShowDupModal(true);
+    }
+  }, [actionData?.duplicateWarning]);
+
+  // Reset success state to allow new registrations
+  useEffect(() => {
+    if (actionData?.success) {
+      // Redirect will happen via page navigation
+    }
+  }, [actionData?.success]);
+
   // Initialize map
   useEffect(() => {
     if (!L || !mapRef.current) return;
 
     // Initialize map centered on user location or default
     const center = userLocation || { lat: 34.0522, lng: -118.2437 }; // LA default
-    const initialZoom = userLocation ? 16 : 14; // Zoomed in more by default
+    const initialZoom = userLocation ? 16 : 14;
     const map = L.map(mapRef.current, {
-      scrollWheelZoom: false, // Disable scroll wheel zoom to allow page scrolling
+      scrollWheelZoom: false,
       zoomControl: true,
     }).setView([center.lat, center.lng], initialZoom);
 
@@ -117,7 +164,6 @@ export default function RegisterArtworkPage() {
     let marker: any = null;
     if (selectedCoords) {
       marker = L.marker([selectedCoords.lat, selectedCoords.lng]).addTo(map);
-      // Don't reset zoom when marker exists
       map.setView([selectedCoords.lat, selectedCoords.lng], map.getZoom());
     }
 
@@ -134,7 +180,6 @@ export default function RegisterArtworkPage() {
         marker = L.marker(e.latlng).addTo(map);
       }
 
-      // Pan to marker without changing zoom level
       const currentZoom = map.getZoom();
       map.setView(e.latlng, currentZoom, { animate: true });
     };
@@ -148,7 +193,6 @@ export default function RegisterArtworkPage() {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setUserLocation({ lat, lng });
-          // Pan to location without changing current zoom
           map.panTo([lat, lng]);
         },
         (error) => console.log("Location access denied (this is normal if you denied permission):", error)
@@ -161,6 +205,52 @@ export default function RegisterArtworkPage() {
     };
   }, [L, mapRef, selectedCoords, userLocation]);
 
+  const reverseGeocodeCoordinates = async (lat: number, lng: number) => {
+    try {
+      setGeocodingAddress("Loading address...");
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+        {
+          headers: {
+            "User-Agent": "wandergraff-app",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        setGeocodingAddress("Unable to get address");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.address) {
+        const addrObj = data.address;
+        let addressString: string;
+
+        if (addrObj.house_number && addrObj.road) {
+          addressString = `${addrObj.house_number} ${addrObj.road}, ${addrObj.city || addrObj.town || addrObj.village || ""}`;
+        } else if (addrObj.road) {
+          addressString = `${addrObj.road}, ${addrObj.city || addrObj.town || addrObj.village || ""}`;
+        } else if (addrObj.amenity) {
+          addressString = `${addrObj.amenity}, ${addrObj.city || addrObj.town || addrObj.village || ""}`;
+        } else if (addrObj.shop) {
+          addressString = `${addrObj.shop}, ${addrObj.city || addrObj.town || addrObj.village || ""}`;
+        } else {
+          addressString = `${addrObj.city || addrObj.town || addrObj.village || addrObj.county || "Unknown Location"}`;
+        }
+
+        setGeocodingAddress(addressString.trim());
+        setAddress(addressString.trim());
+      } else {
+        setGeocodingAddress("Unknown location");
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setGeocodingAddress("Unable to get address");
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (!selectedCoords) {
       alert("Please click on the map to select the artwork location");
@@ -168,14 +258,26 @@ export default function RegisterArtworkPage() {
       return;
     }
 
-    if (!title) {
-      alert("Artwork title is required");
-      e.preventDefault();
-      return;
-    }
-
     setLoading(true);
-    // Form will submit naturally (no preventDefault)
+  };
+
+  const handleConfirmDuplicate = () => {
+    // Submit form with flag to skip duplicate check
+    const form = formRef.current;
+    if (form) {
+      const dupCheckInput = document.createElement("input");
+      dupCheckInput.type = "hidden";
+      dupCheckInput.name = "skipDupCheck";
+      dupCheckInput.value = "true";
+      form.appendChild(dupCheckInput);
+      form.submit();
+    }
+  };
+
+  const handleViewDuplicate = () => {
+    if (actionData?.nearbyArtwork) {
+      window.location.href = `/artwork/${actionData.nearbyArtwork.id}`;
+    }
   };
 
   if (actionData?.success) {
@@ -209,7 +311,7 @@ export default function RegisterArtworkPage() {
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
             <h1 className="text-3xl font-bold text-white">📍 Pin a Mural</h1>
-            <p className="text-blue-100 mt-2">Click on the map to pinpoint the location and provide details about the mural</p>
+            <p className="text-blue-100 mt-2">Click on the map to pinpoint the location of the street art</p>
           </div>
 
           {/* Content */}
@@ -220,95 +322,127 @@ export default function RegisterArtworkPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <form ref={formRef} method="POST" onSubmit={handleSubmit} className="flex flex-col space-y-4">
               {/* Map */}
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-900 mb-2">
                   📍 Artwork Location
                 </label>
                 <div
                   ref={mapRef}
-                  className="flex-1 w-full min-h-96 rounded-lg border border-gray-300 bg-gray-100"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-100"
                   style={{ height: "400px" }}
                 />
                 {selectedCoords && (
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
-                    <p>Latitude: {selectedCoords.lat.toFixed(6)}</p>
-                    <p>Longitude: {selectedCoords.lng.toFixed(6)}</p>
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm font-semibold text-gray-900 mb-2">📍 Location Address:</p>
+                    <p className="text-lg text-blue-900 font-medium">{geocodingAddress}</p>
+                    <p className="text-xs text-gray-600 mt-2">
+                      {selectedCoords.lat.toFixed(6)}, {selectedCoords.lng.toFixed(6)}
+                    </p>
                   </div>
                 )}
                 <p className="text-xs text-gray-500 mt-2">Click on the map to pinpoint the artwork location</p>
               </div>
 
-              {/* Form */}
-              <form ref={formRef} method="POST" onSubmit={handleSubmit} className="flex flex-col space-y-4">
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-900 mb-1">
-                    Artwork Title *
-                  </label>
-                  <input
-                    id="title"
-                    type="text"
-                    name="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g., Red Building Mural, Downtown Phoenix"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
+              <input type="hidden" name="latitude" value={selectedCoords?.lat || ""} />
+              <input type="hidden" name="longitude" value={selectedCoords?.lng || ""} />
+              <input type="hidden" name="address" value={address || ""} />
 
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-900 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe the artwork, artist, style, etc. (optional)"
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="yearCreated" className="block text-sm font-medium text-gray-900 mb-1">
-                    Year Created
-                  </label>
-                  <input
-                    id="yearCreated"
-                    type="number"
-                    name="yearCreated"
-                    value={yearCreated}
-                    onChange={(e) => setYearCreated(e.target.value)}
-                    min="1900"
-                    max={new Date().getFullYear()}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <input type="hidden" name="latitude" value={selectedCoords?.lat || ""} />
-                <input type="hidden" name="longitude" value={selectedCoords?.lng || ""} />
-
-                <div className="flex gap-4 pt-4">
-                  <a href="/" className="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-400 text-center font-medium">
-                    Cancel
-                  </a>
-                  <button
-                    type="submit"
-                    disabled={!selectedCoords || !title || loading}
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
-                  >
-                    {loading ? "Pinning..." : "📍 Pin Mural"}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="flex gap-4 pt-4">
+                <a href="/" className="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-400 text-center font-medium">
+                  Cancel
+                </a>
+                <button
+                  type="submit"
+                  disabled={!selectedCoords || loading}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                >
+                  {loading ? "Pinning..." : "📍 Pin Mural"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
+
+      {/* Duplicate Warning Modal */}
+      {showDupModal && actionData?.nearbyArtwork && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full overflow-hidden">
+            <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-yellow-900 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                Artwork Already Nearby
+              </h3>
+            </div>
+
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                We found an artwork pinned very close to this location:
+              </p>
+
+              {/* Preview of nearby artwork */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+                {actionData.nearbyArtwork.photos && actionData.nearbyArtwork.photos[0] && (
+                  <img
+                    src={actionData.nearbyArtwork.photos[0].photoUrl}
+                    alt={actionData.nearbyArtwork.title}
+                    className="w-full h-40 object-cover rounded-md mb-3"
+                  />
+                )}
+                <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                  {actionData.nearbyArtwork.title}
+                </h4>
+                {actionData.nearbyArtwork.address && (
+                  <p className="text-xs text-gray-600 mb-2">
+                    📍 {actionData.nearbyArtwork.address}
+                  </p>
+                )}
+                <span className={`text-xs font-medium px-2 py-1 rounded ${
+                  actionData.nearbyArtwork.claimStatus === "CLAIMED"
+                    ? "bg-green-100 text-green-800"
+                    : actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}>
+                  {actionData.nearbyArtwork.claimStatus === "CLAIMED" ? "Claimed" : 
+                   actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL" ? "Pending Approval" : "Unclaimed"}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-6">
+                Is this the same artwork you're trying to pin? If so, you can contribute photos to it instead of creating a duplicate.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleViewDuplicate}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium text-sm"
+                >
+                  View It
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDupModal(false);
+                  }}
+                  className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDuplicate}
+                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 font-medium text-sm"
+                >
+                  Create New
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

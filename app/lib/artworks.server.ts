@@ -1,17 +1,19 @@
 import { calculateDistance, isValidCoordinates } from "./geo";
 import { prismaClient } from "./db.server";
+import { reverseGeocode } from "./geocoding.server";
 
 const PROXIMITY_RADIUS_METERS = 20;
 
 export async function createArtwork(
-  title: string,
   latitude: number,
   longitude: number,
   createdById: string,
   options?: {
+    title?: string;
     description?: string;
     yearCreated?: number;
     artistId?: string;
+    address?: string;
   }
 ) {
   if (!isValidCoordinates(latitude, longitude)) {
@@ -32,11 +34,22 @@ export async function createArtwork(
     throw new Error(`User with ID ${createdById} not found in database`);
   }
 
+  // Get address if not provided
+  let address = options?.address;
+  if (!address) {
+    address = await reverseGeocode(latitude, longitude);
+    console.log("[ARTWORK] Geocoded address:", address);
+  }
+
+  // Generate placeholder title if not provided
+  const title = options?.title || `Untitled Mural at ${address || "Unknown Location"}`;
+
   return prisma.artwork.create({
     data: {
       title,
       latitude,
       longitude,
+      address: address || undefined,
       createdById,
       description: options?.description,
       yearCreated: options?.yearCreated,
@@ -72,6 +85,36 @@ export async function updateArtwork(
   return prisma.artwork.update({
     where: { id },
     data,
+  });
+}
+
+export async function deleteArtwork(id: string) {
+  const prisma = await prismaClient();
+
+  // Orphan all photos (set artworkId to null)
+  await prisma.photo.updateMany({
+    where: { artworkId: id },
+    data: { artworkId: null },
+  });
+
+  // Delete collection items (they reference this artwork)
+  await prisma.collectionItem.deleteMany({
+    where: { artworkId: id },
+  });
+
+  // Delete saves
+  await prisma.save.deleteMany({
+    where: { artworkId: id },
+  });
+
+  // Delete galleries
+  await prisma.gallery.deleteMany({
+    where: { artworkId: id },
+  });
+
+  // Finally delete the artwork itself
+  return prisma.artwork.delete({
+    where: { id },
   });
 }
 
@@ -128,6 +171,41 @@ export async function findNearbyArtworks(
     calculateDistance(latitude, longitude, artwork.latitude, artwork.longitude) <=
     radiusMeters
   );
+}
+
+export async function findDuplicateArtworkNearby(
+  latitude: number,
+  longitude: number,
+  radiusMeters = PROXIMITY_RADIUS_METERS
+) {
+  const prisma = await prismaClient();
+
+  const nearbyArtworks = await prisma.artwork.findMany({
+    where: {
+      // Find artworks within the proximity radius
+    },
+    include: {
+      createdBy: true,
+      artist: true,
+      photos: {
+        take: 1,
+        orderBy: {
+          uploadedAt: "desc",
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  // Filter by distance and return the closest one
+  const nearby = nearbyArtworks.filter((artwork) =>
+    calculateDistance(latitude, longitude, artwork.latitude, artwork.longitude) <=
+    radiusMeters
+  );
+
+  return nearby.length > 0 ? nearby[0] : null;
 }
 
 export async function getArtworksInBounds(
@@ -272,4 +350,61 @@ export async function getRecentArtworks(limit = 20) {
       },
     },
   });
+}
+
+export async function getAllArtworks(options?: {
+  search?: string;
+  claimStatus?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const prisma = await prismaClient();
+
+  const where: any = {};
+
+  // Search by title or address
+  if (options?.search) {
+    where.OR = [
+      { title: { contains: options.search, mode: "insensitive" } },
+      { address: { contains: options.search, mode: "insensitive" } },
+    ];
+  }
+
+  // Filter by claim status
+  if (options?.claimStatus && options.claimStatus !== "ALL") {
+    where.claimStatus = options.claimStatus;
+  }
+
+  const offset = options?.offset || 0;
+  const limit = options?.limit || 50;
+
+  const [artworks, total] = await Promise.all([
+    prisma.artwork.findMany({
+      where,
+      include: {
+        createdBy: true,
+        artist: true,
+        photos: {
+          take: 1,
+          orderBy: {
+            uploadedAt: "desc",
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: offset,
+      take: limit,
+    }),
+    prisma.artwork.count({ where }),
+  ]);
+
+  return {
+    artworks,
+    total,
+    limit,
+    offset,
+    hasMore: offset + limit < total,
+  };
 }
