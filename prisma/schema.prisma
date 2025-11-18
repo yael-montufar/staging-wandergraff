@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USERS
+// ============================================================================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(REGULAR_USER)
+  avatarUrl String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  artworks              Artwork[]  @relation("CreatedArtworks")
+  claimedArtworks       Artwork[]  @relation("ClaimedArtworks")
+  photos                Photo[]
+  galleries             Gallery[]
+  collections           Collection[]
+  savedArtworks         Save[]
+  followers             Follow[]   @relation("Followers")
+  following             Follow[]   @relation("Following")
+
+  @@index([email])
+  @@index([role])
+}
+
+enum UserRole {
+  ARTIST
+  REGULAR_USER
+  ADMIN
+}
+
+// ============================================================================
+// ARTWORKS
+// ============================================================================
+model Artwork {
+  id            String  @id @default(cuid())
+  title         String
+  description   String?
+  latitude      Float
+  longitude     Float
+  yearCreated   Int?
+  claimStatus   ClaimStatus @default(UNCLAIMED)
+  createdById   String
+  artistId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  createdBy     User     @relation("CreatedArtworks", fields: [createdById], references: [id], onDelete: Cascade)
+  artist        User?    @relation("ClaimedArtworks", fields: [artistId], references: [id], onDelete: SetNull)
+  photos        Photo[]
+  galleries     Gallery[]
+  saves         Save[]
+  collectionItems CollectionItem[]
+
+  @@unique([latitude, longitude])
+  @@index([createdById])
+  @@index([artistId])
+  @@index([claimStatus])
+  @@index([yearCreated])
+  @@index([latitude, longitude])
+}
+
+enum ClaimStatus {
+  UNCLAIMED
+  PENDING_APPROVAL
+  CLAIMED
+}
+
+// ============================================================================
+// PHOTOS
+// ============================================================================
+model Photo {
+  id              String   @id @default(cuid())
+  artworkId       String?
+  userId          String
+  photoUrl        String
+  thumbnailUrl    String?
+  isPrivate       Boolean  @default(false)
+  takenAt         DateTime
+  uploadedAt      DateTime @default(now())
+  exifLatitude    Float?
+  exifLongitude   Float?
+  exifAltitude    Float?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  artwork         Artwork? @relation(fields: [artworkId], references: [id], onDelete: SetNull)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  galleryPhotos   GalleryPhoto[]
+
+  @@index([artworkId])
+  @@index([userId])
+  @@index([isPrivate])
+  @@index([takenAt])
+  @@index([uploadedAt])
+}
+
+// ============================================================================
+// GALLERIES & GALLERY PHOTOS
+// ============================================================================
+model Gallery {
+  id                  String   @id @default(cuid())
+  artworkId           String
+  type                GalleryType
+  createdByArtistId   String?
+  description         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  artwork             Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  createdByArtist     User?    @relation(fields: [createdByArtistId], references: [id], onDelete: SetNull)
+  photos              GalleryPhoto[]
+
+  @@unique([artworkId, type])
+  @@index([artworkId])
+  @@index([createdByArtistId])
+}
+
+enum GalleryType {
+  DEFAULT
+  OFFICIAL
+}
+
+model GalleryPhoto {
+  id          String   @id @default(cuid())
+  galleryId   String
+  photoId     String
+  order       Int      @default(0)
+  addedAt     DateTime @default(now())
+
+  // Relations
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  photo       Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryId, photoId])
+  @@index([galleryId])
+  @@index([photoId])
+  @@index([order])
+}
+
+// ============================================================================
+// SAVES (Quick Bookmarks)
+// ============================================================================
+model Save {
+  id          String   @id @default(cuid())
+  userId      String
+  artworkId   String
+  savedAt     DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork     Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artworkId])
+  @@index([userId])
+  @@index([artworkId])
+  @@index([savedAt])
+}
+
+// ============================================================================
+// COLLECTIONS & COLLECTION ITEMS
+// ============================================================================
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CollectionItem[]
+  follows     Follow[]
+
+  @@index([userId])
+  @@index([isPublic])
+  @@index([createdAt])
+}
+
+model CollectionItem {
+  id            String   @id @default(cuid())
+  collectionId  String
+  artworkId     String
+  addedAt       DateTime @default(now())
+
+  // Relations
+  collection    Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  artwork       Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, artworkId])
+  @@index([collectionId])
+  @@index([artworkId])
+  @@index([addedAt])
+}
+
+// ============================================================================
+// FOLLOWS (Phase 2 - Social Graph)
+// ============================================================================
+model Follow {
+  id                    String   @id @default(cuid())
+  followerId            String
+  followingUserId       String?
+  followingCollectionId String?
+  followedAt            DateTime @default(now())
+
+  // Relations
+  follower              User       @relation("Followers", fields: [followerId], references: [id], onDelete: Cascade)
+  followingUser         User?      @relation("Following", fields: [followingUserId], references: [id], onDelete: Cascade)
+  followingCollection   Collection? @relation(fields: [followingCollectionId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingUserId])
+  @@unique([followerId, followingCollectionId])
+  @@index([followerId])
+  @@index([followingUserId])
+  @@index([followingCollectionId])
+  @@index([followedAt])
+}
