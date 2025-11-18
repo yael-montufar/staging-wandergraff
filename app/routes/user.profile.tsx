@@ -429,7 +429,7 @@ export default function UserDashboardPage() {
               href="#collections"
               className="py-4 px-1 border-b border-gray-200 text-gray-600 hover:text-gray-900"
             >
-              My Collections ({collections.length})
+              My Walls ({collections.length})
             </a>
           </div>
         </div>
@@ -606,25 +606,25 @@ export default function UserDashboardPage() {
         <section id="collections" className="mb-16">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">My Collections</h2>
-              <p className="text-gray-600">Create and manage curated collections of artworks</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">My Walls</h2>
+              <p className="text-gray-600">Create and manage curated walls of artworks</p>
             </div>
             <a
               href="/collection/new"
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
             >
-              + New Collection
+              + New Wall
             </a>
           </div>
 
           {collections.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <p className="text-gray-500 mb-4">You haven't created any collections yet.</p>
+              <p className="text-gray-500 mb-4">You haven't created any walls yet.</p>
               <a
                 href="/collection/new"
                 className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
-                Create Your First Collection
+                Create Your First Wall
               </a>
             </div>
           ) : (

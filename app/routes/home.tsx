@@ -112,6 +112,7 @@ export default function HomePage() {
                   claimStatus={artwork.claimStatus}
                   artworkArtistId={artwork.artistId}
                   currentUserId={currentUserId}
+                  currentUser={rootData?.user}
                   photoCount={artwork.photos?.length ?? 0}
                   onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
                 />

@@ -93,8 +93,16 @@ export async function addArtworkToCollection(
 ) {
   const prisma = await prismaClient();
 
-  return prisma.collectionItem.create({
-    data: {
+  // Use upsert to make it idempotent - if already exists, just return it
+  return prisma.collectionItem.upsert({
+    where: {
+      collectionId_artworkId: {
+        collectionId,
+        artworkId,
+      },
+    },
+    update: {},
+    create: {
       collectionId,
       artworkId,
     },

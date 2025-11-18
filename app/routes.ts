@@ -11,6 +11,8 @@ export default [
   route("api/user/upload-avatar", "routes/api.user.upload-avatar.tsx"),
   route("api/artworks/search", "routes/api.artworks.search.tsx"),
   route("api/admin/delete-artwork", "routes/api.admin.delete-artwork.tsx"),
+  route("api/artwork/add-to-wall", "routes/api.artwork.add-to-wall.tsx"),
+  route("api/user/walls", "routes/api.user.walls.tsx"),
   route("artwork/register", "routes/artwork.register.tsx"),
   route("artwork/upload", "routes/artwork.upload.tsx"),
   route("artwork/:id", "routes/artwork.$id.tsx"),

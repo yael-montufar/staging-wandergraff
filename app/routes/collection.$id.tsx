@@ -101,7 +101,7 @@ export default function CollectionPage() {
         <main className="max-w-4xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Collection Not Found
+              Wall Not Found
             </h1>
             <a href="/" className="text-blue-600 hover:text-blue-700 font-medium">
               ← Back to Home
@@ -161,7 +161,7 @@ export default function CollectionPage() {
                 href={`/collection/${collection.id}/edit`}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
-                Edit Collection
+                Edit Wall
               </a>
             )}
           </div>
@@ -179,7 +179,7 @@ export default function CollectionPage() {
               <p className="text-sm font-medium text-gray-900">
                 {collection.user?.name || collection.user?.id}
               </p>
-              <p className="text-xs text-gray-500">Collection curator</p>
+              <p className="text-xs text-gray-500">Wall curator</p>
             </div>
           </div>
         </div>
@@ -188,11 +188,11 @@ export default function CollectionPage() {
         {items.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <p className="text-gray-500 mb-4">
-              This collection doesn't have any artworks yet.
+              This wall doesn't have any artworks yet.
             </p>
             {isOwner && (
               <p className="text-sm text-gray-600">
-                Add artworks by visiting artwork pages and adding them to this collection.
+                Add artworks by visiting artwork pages and adding them to this wall.
               </p>
             )}
           </div>

@@ -79,7 +79,7 @@ export default function NewCollectionPage() {
 
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Create New Collection
+            Create New Wall
           </h1>
 
           {actionData?.error && (
@@ -91,7 +91,7 @@ export default function NewCollectionPage() {
           <Form method="post" className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Collection Name *
+                Wall Name *
               </label>
               <input
                 type="text"
@@ -102,7 +102,7 @@ export default function NewCollectionPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Give your collection a descriptive name
+                Give your wall a descriptive name
               </p>
             </div>
 
@@ -114,11 +114,11 @@ export default function NewCollectionPage() {
                 id="description"
                 name="description"
                 rows={4}
-                placeholder="Tell people what this collection is about..."
+                placeholder="Tell people what this wall is about..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Optional. Help others understand your collection
+                Optional. Help others understand your wall
               </p>
             </div>
 
@@ -130,11 +130,11 @@ export default function NewCollectionPage() {
                 className="h-4 w-4 text-blue-600 rounded"
               />
               <label htmlFor="isPublic" className="text-sm font-medium text-gray-700">
-                Make this collection public
+                Make this wall public
               </label>
             </div>
             <p className="text-xs text-gray-600 ml-7">
-              Public collections can be discovered by other users
+              Public walls can be discovered by other users
             </p>
 
             <div className="flex gap-4 pt-6">
@@ -148,7 +148,7 @@ export default function NewCollectionPage() {
                 type="submit"
                 className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition"
               >
-                Create Collection
+                Create Wall
               </button>
             </div>
           </Form>

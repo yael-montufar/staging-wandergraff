@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import type { Route } from "./+types/artwork.$id";
 import { Navigation } from "../components/Navigation";
 import { Button } from "../components/ui/Button";
+import { AddToWallButton } from "../components/AddToWallButton";
 import { getArtwork, claimArtwork } from "../lib/artworks.server";
 import { getPhotosByArtwork } from "../lib/photos.server";
 import { getAuthTokenFromCookie, getUserFromToken } from "../lib/auth.server";
@@ -207,6 +208,27 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
       console.error("[ARTWORK] Error updating metadata:", error);
       return {
         error: error instanceof Error ? error.message : "Failed to update artwork",
+      };
+    }
+  }
+
+  if (intent === "add-to-wall") {
+    try {
+      const wallId = formData.get("wallId") as string;
+      const artworkTitle = formData.get("artworkTitle") as string;
+
+      if (!wallId) {
+        return { error: "Wall ID is required" };
+      }
+
+      const { addArtworkToCollection } = await import("~/lib/collections.server");
+      await addArtworkToCollection(wallId, id);
+
+      return { success: true, message: `Added to wall successfully` };
+    } catch (error) {
+      console.error("[WALL] Error adding artwork to wall:", error);
+      return {
+        error: error instanceof Error ? error.message : "Failed to add to wall",
       };
     }
   }
@@ -632,6 +654,14 @@ export default function ArtworkDetailPage() {
                 >
                   📸 Add Your Photo
                 </Button>
+
+                {/* Add to Wall Button - For signed-in users */}
+                {rootData?.user && (
+                  <AddToWallButton
+                    artworkId={artwork.id}
+                    artworkTitle={artwork.title}
+                  />
+                )}
 
                 {/* Save Success Message - Displayed after edit form closes */}
               {saveSuccess && (

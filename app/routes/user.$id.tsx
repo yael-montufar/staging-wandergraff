@@ -213,11 +213,11 @@ export default function UserProfilePage() {
           </section>
         )}
 
-        {/* Collections Section */}
+        {/* Walls Section */}
         {collections.length > 0 && (
           <section className="mb-16">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Collections
+              Walls
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {collections.map((collection: any) => (
@@ -288,7 +288,7 @@ export default function UserProfilePage() {
         {!isArtist && collections.length === 0 && publicPhotos.length === 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <p className="text-gray-500">
-              This user hasn't shared any collections or photos yet.
+              This user hasn't shared any walls or photos yet.
             </p>
           </div>
         )}

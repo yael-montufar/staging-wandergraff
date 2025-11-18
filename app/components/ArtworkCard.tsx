@@ -1,4 +1,5 @@
 import { Card, CardBody } from "./ui/Card";
+import { AddToWallButton } from "./AddToWallButton";
 
 export interface ArtworkCardProps {
   id: string;
@@ -8,6 +9,7 @@ export interface ArtworkCardProps {
   claimStatus?: "UNCLAIMED" | "PENDING_APPROVAL" | "CLAIMED";
   artworkArtistId?: string | null;
   currentUserId?: string;
+  currentUser?: any;
   photoCount?: number;
   onClick?: () => void;
 }
@@ -20,6 +22,7 @@ export function ArtworkCard({
   claimStatus,
   artworkArtistId,
   currentUserId,
+  currentUser,
   photoCount = 0,
   onClick,
 }: ArtworkCardProps) {
@@ -43,7 +46,7 @@ export function ArtworkCard({
     <Card
       clickable
       onClick={onClick}
-      className="overflow-hidden group h-full flex flex-col"
+      className="overflow-hidden group h-full flex flex-col relative"
     >
       {/* Image Container */}
       <div className="aspect-square bg-gray-200 overflow-hidden relative">
@@ -56,6 +59,20 @@ export function ArtworkCard({
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-300">
             <span className="text-gray-500 text-sm">No image</span>
+          </div>
+        )}
+
+        {/* Add to Wall Button - Bottom right corner */}
+        {currentUser && (
+          <div
+            className="absolute bottom-2 right-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AddToWallButton
+              artworkId={id}
+              artworkTitle={title}
+              variant="icon-brick"
+            />
           </div>
         )}
       </div>

@@ -131,7 +131,7 @@ export default function EditCollectionPage() {
         <main className="max-w-4xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Collection Not Found
+              Wall Not Found
             </h1>
             <a href="/user/profile" className="text-blue-600 hover:text-blue-700 font-medium">
               ← Back to Profile
@@ -153,13 +153,13 @@ export default function EditCollectionPage() {
             href={`/collection/${collection.id}`}
             className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
           >
-            ← Back to Collection
+            ← Back to Wall
           </a>
         </div>
 
         {/* Edit Form */}
         <div className="bg-white rounded-lg shadow-md p-8 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Edit Collection</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Edit Wall</h1>
 
           {actionData?.error && (
             <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -172,7 +172,7 @@ export default function EditCollectionPage() {
 
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Collection Name *
+                Wall Name *
               </label>
               <input
                 type="text"
