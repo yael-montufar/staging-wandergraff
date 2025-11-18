@@ -1,0 +1,79 @@
+import { Card, CardBody } from "./ui/Card";
+
+export interface ArtworkCardProps {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  artistName?: string;
+  claimStatus?: "UNCLAIMED" | "PENDING_APPROVAL" | "CLAIMED";
+  photoCount?: number;
+  onClick?: () => void;
+}
+
+export function ArtworkCard({
+  id,
+  title,
+  imageUrl,
+  artistName,
+  claimStatus,
+  photoCount = 0,
+  onClick,
+}: ArtworkCardProps) {
+  const statusLabel = {
+    UNCLAIMED: "Unclaimed",
+    PENDING_APPROVAL: "Pending",
+    CLAIMED: "Claimed",
+  }[claimStatus || "UNCLAIMED"];
+
+  const statusColor = {
+    UNCLAIMED: "bg-gray-100 text-gray-800",
+    PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
+    CLAIMED: "bg-green-100 text-green-800",
+  }[claimStatus || "UNCLAIMED"];
+
+  return (
+    <Card
+      clickable
+      onClick={onClick}
+      className="overflow-hidden group h-full flex flex-col"
+    >
+      {/* Image Container */}
+      <div className="aspect-square bg-gray-200 overflow-hidden relative">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-300">
+            <span className="text-gray-500 text-sm">No image</span>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <CardBody className="flex-1 flex flex-col">
+        <h3 className="font-semibold text-lg text-gray-900 line-clamp-2">
+          {title}
+        </h3>
+
+        {artistName && (
+          <p className="text-sm text-gray-600 mt-1">by {artistName}</p>
+        )}
+
+        {/* Status Badge */}
+        <div className="mt-2 flex items-center gap-2">
+          <span className={`text-xs font-medium px-2 py-1 rounded ${statusColor}`}>
+            {statusLabel}
+          </span>
+          {photoCount > 0 && (
+            <span className="text-xs text-gray-500">
+              {photoCount} {photoCount === 1 ? "photo" : "photos"}
+            </span>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}

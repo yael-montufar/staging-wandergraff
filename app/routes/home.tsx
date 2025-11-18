@@ -1,5 +1,7 @@
-import { Link } from "react-router";
 import { Navigation } from "../components/Navigation";
+import { Button } from "../components/ui/Button";
+import { EmptyState } from "../components/ui/EmptyState";
+import { GalleryGrid } from "../components/GalleryGrid";
 
 export default function HomePage() {
   const artworks: any[] = [];
@@ -17,77 +19,107 @@ export default function HomePage() {
           <p className="text-xl text-gray-600 mb-8">
             Explore, share, and celebrate street art from around the world
           </p>
-          <div className="flex gap-4 justify-center">
-            <Link
-              to="/artwork/register"
-              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => (window.location.href = "/artwork/register")}
             >
               Register Artwork
-            </Link>
-            <Link
-              to="/map"
-              className="bg-gray-200 text-gray-900 px-6 py-2 rounded-md hover:bg-gray-300"
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => (window.location.href = "/map")}
             >
               View Map
-            </Link>
+            </Button>
           </div>
         </div>
 
-        {/* Gallery Grid */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        {/* Gallery Section */}
+        <section>
+          <h2 className="text-2xl font-bold text-gray-900 mb-8">
             Recently Added
           </h2>
 
           {artworks.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">
-                No artworks yet. Be the first to register one!
-              </p>
-            </div>
+            <EmptyState
+              title="No artworks yet"
+              description="Be the first to register a street art piece and start building our community gallery!"
+              icon="🎨"
+              action={{
+                label: "Register First Artwork",
+                onClick: () => (window.location.href = "/artwork/register"),
+              }}
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {artworks.map((artwork) => {
-                const defaultGallery = artwork.galleries.find(
-                  (g) => g.type === "DEFAULT"
-                );
-                const primaryPhoto = defaultGallery?.photos[0]?.photo;
-
-                return (
-                  <Link
-                    key={artwork.id}
-                    to={`/artwork/${artwork.id}`}
-                    className="group overflow-hidden rounded-lg shadow hover:shadow-lg transition-shadow"
-                  >
-                    <div className="aspect-square bg-gray-200 overflow-hidden">
-                      {primaryPhoto ? (
-                        <img
-                          src={primaryPhoto.thumbnailUrl || primaryPhoto.photoUrl}
-                          alt={artwork.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-300">
-                          <span className="text-gray-500">No image</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-lg text-gray-900">
-                        {artwork.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {artwork.claimStatus === "CLAIMED"
-                          ? `Claimed: ${artwork.artist?.name || "Unknown"}`
-                          : "Not claimed"}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <GalleryGrid columns={3} gap="md">
+              {artworks.map((artwork) => (
+                <div
+                  key={artwork.id}
+                  onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
+                >
+                  {/* Artwork cards would go here */}
+                </div>
+              ))}
+            </GalleryGrid>
           )}
-        </div>
+        </section>
+
+        {/* Quick Links Section */}
+        <section className="mt-16 pt-12 border-t border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900 mb-6">
+            Explore Street Art
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <h4 className="font-semibold text-gray-900 mb-2">
+                Browse by Artist
+              </h4>
+              <p className="text-gray-600 text-sm mb-4">
+                Discover works by talented street artists from around the world
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => (window.location.href = "/discover/artists")}
+              >
+                View Artists
+              </Button>
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-gray-900 mb-2">
+                Browse by Year
+              </h4>
+              <p className="text-gray-600 text-sm mb-4">
+                See how street art has evolved over time
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => (window.location.href = "/discover/years")}
+              >
+                View Timeline
+              </Button>
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-gray-900 mb-2">
+                Explore on Map
+              </h4>
+              <p className="text-gray-600 text-sm mb-4">
+                Find street art near you using our interactive map
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => (window.location.href = "/map")}
+              >
+                Open Map
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
