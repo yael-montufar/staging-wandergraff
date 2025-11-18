@@ -1,3 +1,7 @@
+'use client';
+
+import { UserMenu } from './UserMenu';
+
 type NavigationProps = {
   user?: {
     id: string;
@@ -25,19 +29,7 @@ export function Navigation({ user }: NavigationProps) {
               Home
             </a>
             {user ? (
-              <>
-                <span className="text-gray-600 px-3 py-2 text-sm font-medium">
-                  {user.name || user.email}
-                </span>
-                <form method="POST" action="/auth/logout" className="inline">
-                  <button
-                    type="submit"
-                    className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                  >
-                    Sign Out
-                  </button>
-                </form>
-              </>
+              <UserMenu user={user} />
             ) : (
               <>
                 <a

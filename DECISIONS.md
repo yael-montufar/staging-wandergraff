@@ -483,5 +483,212 @@ When moving to production:
 
 ---
 
-**Last Updated:** [Current Session]  
+## User Profile System Architecture
+
+### Decision: Private Dashboard vs Public Profile Separation
+**Date:** User profiles implementation phase
+**Status:** ✅ Implemented
+
+**Reasoning:**
+- Users need a way to manage their content (private photos, collections)
+- Other users should be able to discover and view public content from users
+- Different UX requirements for owner vs viewer perspectives
+
+**Architecture:**
+- **Private Dashboard** (`/user/profile`):
+  - Accessible only to authenticated user
+  - Shows all photos (private and public) with toggle switches
+  - Allows photo deletion and privacy management
+  - Shows all collections (public and private)
+  - Allows collection creation, editing, deletion
+  - Lists owned artworks for artists
+
+- **Public Profile** (`/user/:userId`):
+  - Accessible to all users
+  - Shows only public collections
+  - Shows only public photos
+  - Shows all claimed artworks (for artists)
+  - Links to user profile from photos and collections
+
+**Implementation Details:**
+- Dashboard uses `getPhotosByUser()` (returns all photos)
+- Public profile uses filtered queries for public content only
+- Photos include user info via `include: { user: true }`
+- Collections use `getCollection()` with user relationship
+- Navigation updated to link user name/avatar to their profile
+
+**Security:**
+- Dashboard route checks auth token and redirects to login if missing
+- Public profile route allows anonymous access
+- Collections check `isOwner` before allowing edit/delete actions
+- Photos only deletable by uploader or collection owner
+
+---
+
+## Collections as User-Curated Boards
+
+### Decision: Collections as Separate Entity from Galleries
+**Date:** User profiles implementation phase
+**Status:** ✅ Implemented
+
+**Terminology Clarification:**
+- **Gallery**: Photo grouping for a specific artwork
+  - Official Gallery: Artist-curated photos for their claimed artwork
+  - Community Gallery: All public photos uploaded for an artwork
+
+- **Collection**: User-curated board of multiple artworks (like Pinterest)
+  - Can be public or private
+  - User can add/remove artworks
+  - Owned by user, not artwork
+
+**Data Model:**
+```
+User -> Collection (one-to-many)
+Collection -> CollectionItem -> Artwork (many-to-many)
+Collection -> Follow (for phase 2 social features)
+```
+
+**Collection Features:**
+- Create new collections with name, description, visibility
+- Add/remove artworks from collections
+- Edit collection details (name, description, public/private toggle)
+- Delete collections
+- Public collections discoverable by other users
+- Public collections viewable by anyone via /collection/:id
+
+**Implementation Details:**
+- Collections library has full CRUD operations
+- Routes: /collection/new, /collection/:id, /collection/:id/edit
+- Collections include full artwork details with primary photo
+- Owner-only operations protected via user ID checks
+
+**Rationale:**
+Separates artwork-specific photo groupings (galleries) from user-curated collections. Collections serve as a way for users to organize discoveries and share themed groups of artworks with others.
+
+---
+
+## Photo Attribution System
+
+### Decision: Link Community Photos to Uploader
+**Date:** User profiles implementation phase
+**Status:** ✅ Implemented
+
+**Problem:**
+- Community photos lacked attribution to the uploader
+- No way to see a user's contributions across artworks
+- Users had no incentive to contribute or get recognition
+
+**Solution:**
+- Every photo includes user relationship (user_id field already in schema)
+- Artwork detail page displays uploader name and link to their profile
+- Uploader names shown in both official and community galleries
+- Photos display upload date
+- Users can click uploader name to visit their public profile
+
+**Implementation Details:**
+- `getPhotosByArtwork()` includes user relationship via `include: { user: true }`
+- Artwork page displays: "Uploaded by [username] on [date]"
+- Username is a link to `/user/:userId` public profile
+- Works for both official and community photos
+- Private photos still show uploader attribution on artwork detail (if user is viewing)
+
+**Benefits:**
+- Recognition for photo contributors
+- Discoverable contributor profiles
+- Builds sense of community contribution
+- Users can develop reputation as photographers/documenters
+
+---
+
+## User Role System Integration
+
+### Decision: Keep Artist/Regular User Distinction in Public Profiles
+**Date:** User profiles implementation phase
+**Status:** ✅ Implemented
+
+**Reasoning:**
+- Artists need to claim and curate their work
+- Regular users contribute photos and collections
+- Profiles should visually distinguish between users with claimed artworks vs just contributors
+
+**Implementation:**
+- User role already in schema: `role: UserRole (ARTIST | REGULAR_USER | ADMIN)`
+- Public profile displays "Artist" badge if user.role === "ARTIST"
+- Artist profiles show their claimed artworks in dedicated section
+- Artist profiles show contribution counts
+- All profiles show:
+  - Number of photos contributed
+  - Number of public collections
+  - Artists additionally show: number of claimed artworks
+
+**Benefits:**
+- Helps users find artists they want to follow
+- Artists gain recognition for their work
+- Clear distinction between discovery paths (artist portfolios vs curator collections)
+
+---
+
+## Dashboard Features for Content Management
+
+### Decision: Photo Privacy Toggle and Deletion in Dashboard
+**Date:** User profiles implementation phase
+**Status:** ✅ Implemented
+
+**Problem:**
+- Users uploaded photos with "keep private" checkbox but couldn't access them later
+- No UI for managing photo visibility
+- No way to delete unwanted photos
+
+**Solution:**
+Dashboard provides:
+1. **Photo Visibility Management**
+   - Private photos section with "Make Public" button
+   - Public photos section with "Make Private" button
+   - Color-coded: yellow indicator for private, green for public
+   - Toggle action via form submission
+
+2. **Photo Deletion**
+   - Delete button on every photo card
+   - Confirmation via native browser confirm()
+   - Removes photo from all galleries
+
+3. **Collection Management**
+   - View all owned collections
+   - Create new collection
+   - View collection details
+   - Edit collection (name, description, visibility)
+   - Delete collection (with confirmation)
+
+4. **Visual Organization**
+   - Tab navigation for Photos vs Collections
+   - Grid layout showing thumbnails
+   - Display upload/creation dates
+   - Show associated artwork title
+
+**Implementation Details:**
+- Dashboard form actions handle: toggle-privacy, delete-photo, delete-collection
+- Uses POST method with hidden _action field
+- getPhotosByUser() returns all photos regardless of privacy
+- Photos filtered on client for display (private vs public sections)
+- Collection count and item count displayed
+
+**Rationale:**
+Users need full control over their content. Dashboard provides single place to manage photos (privacy, deletion) and collections (CRUD) without leaving the platform.
+
+---
+
+## Document History
+
+| Version | Date | Key Changes |
+|---------|------|-------------|
+| 1.0 | Initial | Documented architecture, EXIF removal, terminology, env setup |
+| 1.1 | Session 2 | Added attribution removal, street-based dedup detection strategy |
+| 1.2 | Session 2 | Added official vs community photo galleries structure |
+| 1.3 | Session 2 | Added local file storage strategy for images |
+| 1.4 | Session 2 | Added mobile image format conversion (HEIC→JPEG, optimization) |
+| 1.5 | Session 3 | Added user profile system: dashboard, public profiles, collections, attribution |
+
+---
+
+**Last Updated:** [Current Session]
 **Next Review:** When next major decision is made or architecture changes significantly

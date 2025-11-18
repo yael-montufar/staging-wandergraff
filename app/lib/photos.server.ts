@@ -48,6 +48,7 @@ export async function updatePhoto(
   id: string,
   data: {
     isPrivate?: boolean;
+    artworkId?: string;
   }
 ) {
   const prisma = await prismaClient();

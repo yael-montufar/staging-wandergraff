@@ -1,4 +1,4 @@
-// Database operations are deferred until Prisma is properly integrated
+import { prismaClient } from "./db.server";
 
 export async function createCollection(
   userId: string,
@@ -8,13 +8,59 @@ export async function createCollection(
     isPublic?: boolean;
   }
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Collection creation not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.create({
+    data: {
+      userId,
+      name,
+      description: options?.description,
+      isPublic: options?.isPublic ?? false,
+    },
+  });
 }
 
 export async function getCollection(id: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Collection retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+        },
+      },
+      items: {
+        include: {
+          artwork: {
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              artist: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              photos: {
+                where: { isPrivate: false },
+                take: 1,
+                orderBy: { takenAt: "desc" },
+              },
+            },
+          },
+        },
+        orderBy: { addedAt: "desc" },
+      },
+    },
+  });
 }
 
 export async function updateCollection(
@@ -25,55 +71,157 @@ export async function updateCollection(
     isPublic?: boolean;
   }
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Collection update not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.update({
+    where: { id },
+    data,
+  });
 }
 
 export async function deleteCollection(id: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Collection deletion not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.delete({
+    where: { id },
+  });
 }
 
 export async function addArtworkToCollection(
   collectionId: string,
   artworkId: string
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Adding artwork to collection not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collectionItem.create({
+    data: {
+      collectionId,
+      artworkId,
+    },
+  });
 }
 
 export async function removeArtworkFromCollection(
   collectionId: string,
   artworkId: string
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Removing artwork from collection not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collectionItem.deleteMany({
+    where: {
+      collectionId,
+      artworkId,
+    },
+  });
 }
 
 export async function isArtworkInCollection(
   collectionId: string,
   artworkId: string
 ) {
-  // TODO: Implement with Prisma
-  throw new Error("Checking artwork in collection not yet implemented");
+  const prisma = await prismaClient();
+
+  const item = await prisma.collectionItem.findUnique({
+    where: {
+      collectionId_artworkId: {
+        collectionId,
+        artworkId,
+      },
+    },
+  });
+
+  return !!item;
 }
 
 export async function getUserCollections(userId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("User collections retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.findMany({
+    where: { userId },
+    include: {
+      items: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function getPublicCollections(limit = 50) {
-  // TODO: Implement with Prisma
-  throw new Error("Public collections retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.findMany({
+    where: { isPublic: true },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+        },
+      },
+      items: {
+        take: 3,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
 export async function searchCollections(query: string, limit = 20) {
-  // TODO: Implement with Prisma
-  throw new Error("Collections search not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collection.findMany({
+    where: {
+      isPublic: true,
+      OR: [
+        {
+          name: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+        {
+          description: {
+            contains: query,
+            mode: "insensitive",
+          },
+        },
+      ],
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+        },
+      },
+      items: {
+        take: 3,
+      },
+    },
+    take: limit,
+  });
 }
 
 export async function getCollectionArtworkCount(collectionId: string) {
-  // TODO: Implement with Prisma
-  throw new Error("Collection artwork count retrieval not yet implemented");
+  const prisma = await prismaClient();
+
+  return prisma.collectionItem.count({
+    where: { collectionId },
+  });
+}
+
+export async function getCollectionWithArtworkCount(collectionId: string) {
+  const prisma = await prismaClient();
+
+  const [collection, count] = await Promise.all([
+    getCollection(collectionId),
+    getCollectionArtworkCount(collectionId),
+  ]);
+
+  return {
+    ...collection,
+    artworkCount: count,
+  };
 }

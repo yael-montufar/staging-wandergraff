@@ -112,19 +112,34 @@ export default function ArtworkDetailPage() {
                         Curated by Artist
                       </span>
                     </div>
-                    {officialPhotos.length > 0 && (
-                      <div className="grid grid-cols-4 gap-2">
-                        {officialPhotos.map((photo: any) => (
-                          <div key={photo.id} className="aspect-square rounded overflow-hidden bg-gray-100">
-                            <img
-                              src={photo.thumbnailUrl || photo.photoUrl}
-                              alt="Official"
-                              className="w-full h-full object-cover hover:opacity-75 cursor-pointer transition"
-                            />
+                    <div className="space-y-3">
+                      {officialPhotos.map((photo: any) => (
+                        <div
+                          key={photo.id}
+                          className="rounded overflow-hidden bg-gray-100 hover:shadow-md transition"
+                        >
+                          <img
+                            src={photo.photoUrl}
+                            alt="Official"
+                            className="w-full h-48 object-cover hover:opacity-75 cursor-pointer transition"
+                          />
+                          <div className="p-2 bg-white">
+                            <p className="text-xs text-gray-600">
+                              Uploaded by{" "}
+                              <a
+                                href={`/user/${photo.user.id}`}
+                                className="text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                {photo.user.name || photo.user.email}
+                              </a>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(photo.uploadedAt).toLocaleDateString()}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -134,14 +149,31 @@ export default function ArtworkDetailPage() {
                     <p className="text-sm font-semibold text-gray-900 mb-3">
                       Community Photos ({communityPhotos.length})
                     </p>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-3">
                       {communityPhotos.map((photo: any) => (
-                        <div key={photo.id} className="aspect-square rounded overflow-hidden bg-gray-100">
+                        <div
+                          key={photo.id}
+                          className="rounded overflow-hidden bg-gray-100 hover:shadow-md transition"
+                        >
                           <img
-                            src={photo.thumbnailUrl || photo.photoUrl}
+                            src={photo.photoUrl}
                             alt="Community"
-                            className="w-full h-full object-cover hover:opacity-75 cursor-pointer transition"
+                            className="w-full h-48 object-cover hover:opacity-75 cursor-pointer transition"
                           />
+                          <div className="p-2 bg-white">
+                            <p className="text-xs text-gray-600">
+                              Uploaded by{" "}
+                              <a
+                                href={`/user/${photo.user.id}`}
+                                className="text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                {photo.user.name || photo.user.email}
+                              </a>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(photo.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
                       ))}
                     </div>

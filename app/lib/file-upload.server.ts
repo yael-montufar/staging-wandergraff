@@ -13,24 +13,39 @@ export async function ensureUploadDir() {
   }
 }
 
-export async function saveUploadedFile(file: File): Promise<string> {
+export async function saveUploadedFile(
+  input: File | Buffer,
+  type: "photo" | "avatar" = "photo",
+  mimeType?: string
+): Promise<string> {
   try {
     await ensureUploadDir();
 
     // Generate unique filename
     const timestamp = Date.now();
     const randomId = randomBytes(8).toString("hex");
-    const ext = getFileExtension(file.name);
+
+    let buffer: Buffer;
+    let ext: string;
+
+    if (input instanceof File) {
+      buffer = Buffer.from(await input.arrayBuffer());
+      ext = getFileExtension(input.name);
+      if (!ext && mimeType) {
+        ext = getExtensionFromMimeType(mimeType);
+      }
+    } else {
+      buffer = input;
+      ext = mimeType ? getExtensionFromMimeType(mimeType) : ".jpg";
+    }
+
     const filename = `${timestamp}-${randomId}${ext}`;
     const filepath = join(UPLOAD_DIR, filename);
-
-    // Convert File to Buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
 
     // Write file to disk
     await fs.writeFile(filepath, buffer);
 
-    console.log("[FILE_UPLOAD] File saved:", filename);
+    console.log(`[FILE_UPLOAD] ${type} saved:`, filename);
 
     // Return public URL path
     return `/uploads/${filename}`;
@@ -59,6 +74,19 @@ export async function deleteUploadedFile(filepath: string): Promise<void> {
 function getFileExtension(filename: string): string {
   const match = filename.match(/\.[^.]+$/);
   return match ? match[0] : "";
+}
+
+function getExtensionFromMimeType(mimeType: string): string {
+  const mimeToExt: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/heic": ".jpg", // We convert HEIC to JPEG
+    "image/heif": ".jpg",
+  };
+  return mimeToExt[mimeType] || ".jpg";
 }
 
 export async function readFileAsync(file: File): Promise<Buffer> {

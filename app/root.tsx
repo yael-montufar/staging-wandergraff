@@ -9,14 +9,41 @@ import {
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
-import { getAuthTokenFromCookie, getUserFromToken } from "./lib/auth.server";
 
-export const loader: Route.LoaderFunction = ({ request }) => {
+export const loader: Route.LoaderFunction = async ({ request }) => {
+  const { getAuthTokenFromCookie, getUserFromToken } = await import("./lib/auth.server");
+  const { prismaClient } = await import("./lib/db.server");
+
   const cookieHeader = request.headers.get("cookie");
   const token = getAuthTokenFromCookie(cookieHeader);
   const user = getUserFromToken(token);
 
-  return { user };
+  let userWithProfile = user;
+
+  // If user is authenticated, fetch their profile including avatar
+  if (user) {
+    try {
+      const prisma = await prismaClient();
+      const profile = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          avatarUrl: true,
+        },
+      });
+
+      if (profile) {
+        userWithProfile = {
+          ...user,
+          avatarUrl: profile.avatarUrl,
+        };
+      }
+    } catch (error) {
+      console.error("[ROOT] Error fetching user profile:", error);
+      // Continue with basic user info if profile fetch fails
+    }
+  }
+
+  return { user: userWithProfile };
 };
 
 export const links: Route.LinksFunction = () => [
