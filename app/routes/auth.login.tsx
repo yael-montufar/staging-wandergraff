@@ -1,7 +1,11 @@
-import { type ActionFunction, redirect } from "react-router";
-import { supabaseAdmin } from "../lib/supabase.server";
+import { type ActionFunction, redirect, useActionData } from "react-router";
+import { createClient } from "@supabase/supabase-js";
 
-export const action: ActionFunction = async ({ request }) => {
+type ActionData = {
+  error?: string;
+};
+
+export const action: ActionFunction = async ({ request }): Promise<ActionData | Response> => {
   if (request.method !== "POST") {
     return { error: "Method not allowed" };
   }
@@ -14,29 +18,52 @@ export const action: ActionFunction = async ({ request }) => {
     return { error: "Email and password are required" };
   }
 
-  const { data, error } = await supabaseAdmin.auth.admin.signInWithPassword({
-    email,
-    password,
-  });
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-  if (error) {
-    return { error: error.message };
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[LOGIN] Missing Supabase environment variables");
+      return { error: "Server configuration error" };
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    console.log("[LOGIN] Attempting to sign in user with email:", email);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error("[LOGIN] Supabase error:", error);
+      return { error: error.message };
+    }
+
+    if (!data.session) {
+      console.error("[LOGIN] No session returned from Supabase");
+      return { error: "Failed to create session" };
+    }
+
+    console.log("[LOGIN] User signed in successfully");
+
+    // Set auth cookie and redirect
+    const response = redirect("/");
+    response.headers.set(
+      "Set-Cookie",
+      `auth-token=${data.session.access_token}; Path=/; HttpOnly; SameSite=Lax`
+    );
+    return response;
+  } catch (error) {
+    console.error("[LOGIN] Unexpected error:", error);
+    return { error: error instanceof Error ? error.message : "Login failed" };
   }
-
-  if (!data.session) {
-    return { error: "Failed to create session" };
-  }
-
-  // Set auth cookie and redirect
-  const response = redirect("/");
-  response.headers.set(
-    "Set-Cookie",
-    `auth-token=${data.session.access_token}; Path=/; HttpOnly; SameSite=Lax`
-  );
-  return response;
 };
 
 export default function LoginPage() {
+  const actionData = useActionData<ActionData>();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -45,6 +72,11 @@ export default function LoginPage() {
             Sign in to Wandergraff
           </h2>
         </div>
+        {actionData?.error && (
+          <div className="rounded-md bg-red-50 p-4 border border-red-200">
+            <p className="text-sm font-medium text-red-800">{actionData.error}</p>
+          </div>
+        )}
         <form className="mt-8 space-y-6" method="POST">
           <input type="hidden" name="remember" value="true" />
           <div className="rounded-md shadow-sm -space-y-px">

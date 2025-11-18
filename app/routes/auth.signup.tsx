@@ -1,7 +1,12 @@
-import { type ActionFunction, redirect } from "react-router";
-import { supabaseAdmin } from "../lib/supabase.server";
+import { type ActionFunction, redirect, useActionData } from "react-router";
+import { createClient } from "@supabase/supabase-js";
 
-export const action: ActionFunction = async ({ request }) => {
+type ActionData = {
+  error?: string;
+  success?: boolean;
+};
+
+export const action: ActionFunction = async ({ request }): Promise<ActionData | Response> => {
   if (request.method !== "POST") {
     return { error: "Method not allowed" };
   }
@@ -16,31 +21,49 @@ export const action: ActionFunction = async ({ request }) => {
   }
 
   try {
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[SIGNUP] Missing Supabase environment variables");
+      return { error: "Server configuration error" };
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    console.log("[SIGNUP] Attempting to sign up user with email:", email);
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        name,
+      options: {
+        data: {
+          name,
+        },
       },
     });
 
     if (error) {
+      console.error("[SIGNUP] Supabase error:", error);
       return { error: error.message };
     }
 
     if (!data.user) {
+      console.error("[SIGNUP] No user returned from Supabase");
       return { error: "Failed to create user" };
     }
 
+    console.log("[SIGNUP] User created successfully:", data.user.id);
     // Redirect to login
     return redirect("/auth/login");
   } catch (error) {
+    console.error("[SIGNUP] Unexpected error:", error);
     return { error: error instanceof Error ? error.message : "Signup failed" };
   }
 };
 
 export default function SignupPage() {
+  const actionData = useActionData<ActionData>();
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -49,6 +72,11 @@ export default function SignupPage() {
             Join Wandergraff
           </h2>
         </div>
+        {actionData?.error && (
+          <div className="rounded-md bg-red-50 p-4 border border-red-200">
+            <p className="text-sm font-medium text-red-800">{actionData.error}</p>
+          </div>
+        )}
         <form className="mt-8 space-y-6" method="POST">
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

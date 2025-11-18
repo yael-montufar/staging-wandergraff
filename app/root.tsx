@@ -9,6 +9,15 @@ import {
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
+import { getAuthTokenFromCookie, getUserFromToken } from "./lib/auth.server";
+
+export const loader: Route.LoaderFunction = ({ request }) => {
+  const cookieHeader = request.headers.get("cookie");
+  const token = getAuthTokenFromCookie(cookieHeader);
+  const user = getUserFromToken(token);
+
+  return { user };
+};
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },

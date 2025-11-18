@@ -9,3 +9,7 @@
 .netlify
 
 /generated/prisma
+
+# Environment files
+.env.local
+.env.*.local

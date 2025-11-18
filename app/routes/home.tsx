@@ -1,14 +1,16 @@
+import { useRouteLoaderData } from "react-router";
 import { Navigation } from "../components/Navigation";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { GalleryGrid } from "../components/GalleryGrid";
 
 export default function HomePage() {
+  const rootData = useRouteLoaderData("root") as any;
   const artworks: any[] = [];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      <Navigation user={rootData?.user} />
 
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Hero Section */}
