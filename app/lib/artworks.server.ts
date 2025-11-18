@@ -42,7 +42,7 @@ export async function createArtwork(
   }
 
   // Generate placeholder title if not provided
-  const title = options?.title || `Untitled Mural at ${address || "Unknown Location"}`;
+  const title = options?.title || `Untitled | ${address || "Unknown Location"}`;
 
   return prisma.artwork.create({
     data: {
@@ -78,6 +78,9 @@ export async function updateArtwork(
     title?: string;
     description?: string;
     yearCreated?: number;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
   }
 ) {
   const prisma = await prismaClient();
@@ -149,8 +152,68 @@ export async function rejectClaim(artworkId: string) {
     data: {
       claimStatus: "UNCLAIMED",
       artistId: null,
+      rejectedAt: new Date(),
     },
   });
+}
+
+export async function unclaimArtwork(artworkId: string, artistId: string) {
+  const prisma = await prismaClient();
+
+  // Only allow unclaiming if the artist is the one who claimed it
+  const artwork = await prisma.artwork.findUnique({
+    where: { id: artworkId },
+  });
+
+  if (!artwork || artwork.artistId !== artistId || artwork.claimStatus !== "PENDING_APPROVAL") {
+    throw new Error("You can only unclaim your own pending claims");
+  }
+
+  return prisma.artwork.update({
+    where: { id: artworkId },
+    data: {
+      claimStatus: "UNCLAIMED",
+      artistId: null,
+    },
+  });
+}
+
+export async function getPendingClaimsCount(artistId: string) {
+  const prisma = await prismaClient();
+
+  return prisma.artwork.count({
+    where: {
+      artistId,
+      claimStatus: "PENDING_APPROVAL",
+    },
+  });
+}
+
+export async function isArtistInCooldown(artworkId: string, artistId: string) {
+  const prisma = await prismaClient();
+  const COOLDOWN_DAYS = 14;
+
+  const artwork = await prisma.artwork.findUnique({
+    where: { id: artworkId },
+    select: { rejectedAt: true, artistId: true },
+  });
+
+  if (!artwork || artwork.rejectedAt === null) {
+    return false;
+  }
+
+  // Check if the artwork was previously claimed/rejected by this artist
+  if (artwork.artistId !== artistId) {
+    return false;
+  }
+
+  const now = new Date();
+  const rejectedDate = new Date(artwork.rejectedAt);
+  const daysSinceRejection = Math.floor(
+    (now.getTime() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return daysSinceRejection < COOLDOWN_DAYS;
 }
 
 export async function findNearbyArtworks(

@@ -10,10 +10,18 @@ type LoaderData = {
     id: string;
     email: string;
     name?: string;
+    role?: string;
   };
   userDetails: {
     avatarUrl?: string;
     bio?: string;
+    role?: string;
+    artistName?: string;
+    artistWebsite?: string;
+    artistEmail?: string;
+    artistInstagram?: string;
+    artistTwitter?: string;
+    artistBio?: string;
   };
   allPhotos: any[];
   collections: any[];
@@ -21,8 +29,8 @@ type LoaderData = {
 
 export const loader: Route.LoaderFunction = async ({ request }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
-  const { getPhotosByUser, updatePhoto, deletePhoto } = await import("~/lib/photos.server");
-  const { getUserCollections, deleteCollection } = await import("~/lib/collections.server");
+  const { getPhotosByUser } = await import("~/lib/photos.server");
+  const { getUserCollections } = await import("~/lib/collections.server");
   const { prismaClient } = await import("~/lib/db.server");
 
   const cookieHeader = request.headers.get("cookie");
@@ -40,6 +48,13 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
       select: {
         avatarUrl: true,
         bio: true,
+        role: true,
+        artistName: true,
+        artistWebsite: true,
+        artistEmail: true,
+        artistInstagram: true,
+        artistTwitter: true,
+        artistBio: true,
       },
     });
 
@@ -49,7 +64,7 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
     ]);
 
     return {
-      user,
+      user: { ...user, role: userDetails?.role },
       userDetails: userDetails || {},
       allPhotos,
       collections,
@@ -64,6 +79,7 @@ export const action: Route.ActionFunction = async ({ request }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
   const { updatePhoto, deletePhoto } = await import("~/lib/photos.server");
   const { deleteCollection } = await import("~/lib/collections.server");
+  const { prismaClient } = await import("~/lib/db.server");
 
   const cookieHeader = request.headers.get("cookie");
   const token = getAuthTokenFromCookie(cookieHeader);
@@ -76,6 +92,67 @@ export const action: Route.ActionFunction = async ({ request }) => {
   if (request.method === "POST") {
     const formData = await request.formData();
     const action = formData.get("_action");
+
+    if (action === "become-artist") {
+      try {
+        const artistName = formData.get("artistName") as string;
+        const artistWebsite = formData.get("artistWebsite") as string;
+        const artistEmail = formData.get("artistEmail") as string;
+        const artistInstagram = formData.get("artistInstagram") as string;
+        const artistTwitter = formData.get("artistTwitter") as string;
+        const artistBio = formData.get("artistBio") as string;
+
+        const prisma = await prismaClient();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            role: "ARTIST",
+            artistName: artistName || null,
+            artistWebsite: artistWebsite || null,
+            artistEmail: artistEmail || null,
+            artistInstagram: artistInstagram || null,
+            artistTwitter: artistTwitter || null,
+            artistBio: artistBio || null,
+          },
+        });
+
+        return { success: true, message: "You're now an artist!" };
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "Failed to become an artist",
+        };
+      }
+    }
+
+    if (action === "update-artist-info") {
+      try {
+        const artistName = formData.get("artistName") as string;
+        const artistWebsite = formData.get("artistWebsite") as string;
+        const artistEmail = formData.get("artistEmail") as string;
+        const artistInstagram = formData.get("artistInstagram") as string;
+        const artistTwitter = formData.get("artistTwitter") as string;
+        const artistBio = formData.get("artistBio") as string;
+
+        const prisma = await prismaClient();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            artistName: artistName || null,
+            artistWebsite: artistWebsite || null,
+            artistEmail: artistEmail || null,
+            artistInstagram: artistInstagram || null,
+            artistTwitter: artistTwitter || null,
+            artistBio: artistBio || null,
+          },
+        });
+
+        return { success: true, message: "Artist information updated!" };
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "Failed to update artist information",
+        };
+      }
+    }
 
     if (action === "toggle-privacy") {
       const photoId = formData.get("photoId") as string;
@@ -182,6 +259,8 @@ export default function UserDashboardPage() {
   const loaderData = useRouteLoaderData("routes/user.profile") as LoaderData;
   const actionData = useActionData() as any;
   const { user, userDetails, allPhotos, collections } = loaderData;
+  const [isBecomingArtist, setIsBecomingArtist] = useState(false);
+  const [isEditingArtistInfo, setIsEditingArtistInfo] = useState(false);
 
   const [selectedPhotoForPublishing, setSelectedPhotoForPublishing] = useState<string | null>(null);
   const [searchArtwork, setSearchArtwork] = useState("");
@@ -265,13 +344,73 @@ export default function UserDashboardPage() {
                 className="w-24 h-24 rounded-full object-cover"
               />
             )}
-            <div>
+            <div className="flex-1">
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 {user.name || "User Profile"}
               </h1>
-              <p className="text-gray-600 mb-4">{user.email}</p>
+              <div className="flex items-center gap-4 mb-4">
+                <p className="text-gray-600">{user.email}</p>
+                {userDetails?.role === "ARTIST" && (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full">
+                    Artist
+                  </span>
+                )}
+              </div>
               {userDetails?.bio && (
                 <p className="text-gray-700 max-w-2xl">{userDetails.bio}</p>
+              )}
+
+              {/* Become Artist Section */}
+              {userDetails?.role !== "ARTIST" && !isBecomingArtist && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setIsBecomingArtist(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                  >
+                    Become an Artist
+                  </button>
+                </div>
+              )}
+
+              {/* Artist Info Section */}
+              {userDetails?.role === "ARTIST" && !isEditingArtistInfo && (
+                <div className="mt-4 p-4 rounded-lg border-l-4 border-blue-500 bg-blue-50">
+                  <p className="font-semibold text-blue-900 mb-2">Artist Profile</p>
+                  {userDetails?.artistName && (
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">Name:</span> {userDetails.artistName}
+                    </p>
+                  )}
+                  {userDetails?.artistEmail && (
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">Email:</span> {userDetails.artistEmail}
+                    </p>
+                  )}
+                  {userDetails?.artistInstagram && (
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">Instagram:</span> @{userDetails.artistInstagram}
+                    </p>
+                  )}
+                  {userDetails?.artistTwitter && (
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">Twitter:</span> @{userDetails.artistTwitter}
+                    </p>
+                  )}
+                  {userDetails?.artistWebsite && (
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">Website:</span>{" "}
+                      <a href={userDetails.artistWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {userDetails.artistWebsite}
+                      </a>
+                    </p>
+                  )}
+                  <button
+                    onClick={() => setIsEditingArtistInfo(true)}
+                    className="mt-3 text-sm text-blue-700 hover:text-blue-900 font-medium underline"
+                  >
+                    Edit Artist Info
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -545,6 +684,272 @@ export default function UserDashboardPage() {
             </div>
           )}
         </section>
+
+        {/* Modal for Becoming an Artist */}
+        {isBecomingArtist && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setIsBecomingArtist(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-6">
+                <h2 className="text-2xl font-bold text-white">Become an Artist</h2>
+                <p className="text-blue-100 text-sm mt-1">
+                  Provide your contact information so admins can reach you about your artwork claims.
+                </p>
+              </div>
+
+              {actionData?.success && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 m-6">
+                  <p className="text-green-800 font-medium">{actionData.message}</p>
+                </div>
+              )}
+
+              {actionData?.error && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 m-6">
+                  <p className="text-red-800 font-medium">{actionData.error}</p>
+                </div>
+              )}
+
+              <Form method="post" className="p-6 space-y-4">
+                <input type="hidden" name="_action" value="become-artist" />
+
+                <div>
+                  <label htmlFor="artistName" className="block text-sm font-medium text-gray-900 mb-2">
+                    Artist Name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="artistName"
+                    name="artistName"
+                    placeholder="Your artist name or stage name"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistEmail" className="block text-sm font-medium text-gray-900 mb-2">
+                    Contact Email (optional)
+                  </label>
+                  <input
+                    type="email"
+                    id="artistEmail"
+                    name="artistEmail"
+                    placeholder="your.email@example.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistInstagram" className="block text-sm font-medium text-gray-900 mb-2">
+                    Instagram Handle (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="artistInstagram"
+                    name="artistInstagram"
+                    placeholder="your_instagram_handle"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistTwitter" className="block text-sm font-medium text-gray-900 mb-2">
+                    Twitter Handle (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="artistTwitter"
+                    name="artistTwitter"
+                    placeholder="your_twitter_handle"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistWebsite" className="block text-sm font-medium text-gray-900 mb-2">
+                    Website or Portfolio (optional)
+                  </label>
+                  <input
+                    type="url"
+                    id="artistWebsite"
+                    name="artistWebsite"
+                    placeholder="https://yourwebsite.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistBio" className="block text-sm font-medium text-gray-900 mb-2">
+                    Bio (optional)
+                  </label>
+                  <textarea
+                    id="artistBio"
+                    name="artistBio"
+                    placeholder="Tell us about your art..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="bg-gray-50 px-6 py-4 -mx-6 -mb-6 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsBecomingArtist(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                  >
+                    Become an Artist
+                  </button>
+                </div>
+              </Form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal for Editing Artist Info */}
+        {isEditingArtistInfo && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setIsEditingArtistInfo(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-6">
+                <h2 className="text-2xl font-bold text-white">Edit Artist Information</h2>
+                <p className="text-blue-100 text-sm mt-1">
+                  Update your contact information so admins can reach you.
+                </p>
+              </div>
+
+              {actionData?.success && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 m-6">
+                  <p className="text-green-800 font-medium">{actionData.message}</p>
+                </div>
+              )}
+
+              {actionData?.error && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 m-6">
+                  <p className="text-red-800 font-medium">{actionData.error}</p>
+                </div>
+              )}
+
+              <Form method="post" className="p-6 space-y-4">
+                <input type="hidden" name="_action" value="update-artist-info" />
+
+                <div>
+                  <label htmlFor="artistName" className="block text-sm font-medium text-gray-900 mb-2">
+                    Artist Name
+                  </label>
+                  <input
+                    type="text"
+                    id="artistName"
+                    name="artistName"
+                    defaultValue={userDetails?.artistName || ""}
+                    placeholder="Your artist name or stage name"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistEmail" className="block text-sm font-medium text-gray-900 mb-2">
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    id="artistEmail"
+                    name="artistEmail"
+                    defaultValue={userDetails?.artistEmail || ""}
+                    placeholder="your.email@example.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistInstagram" className="block text-sm font-medium text-gray-900 mb-2">
+                    Instagram Handle
+                  </label>
+                  <input
+                    type="text"
+                    id="artistInstagram"
+                    name="artistInstagram"
+                    defaultValue={userDetails?.artistInstagram || ""}
+                    placeholder="your_instagram_handle"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistTwitter" className="block text-sm font-medium text-gray-900 mb-2">
+                    Twitter Handle
+                  </label>
+                  <input
+                    type="text"
+                    id="artistTwitter"
+                    name="artistTwitter"
+                    defaultValue={userDetails?.artistTwitter || ""}
+                    placeholder="your_twitter_handle"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistWebsite" className="block text-sm font-medium text-gray-900 mb-2">
+                    Website or Portfolio
+                  </label>
+                  <input
+                    type="url"
+                    id="artistWebsite"
+                    name="artistWebsite"
+                    defaultValue={userDetails?.artistWebsite || ""}
+                    placeholder="https://yourwebsite.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="artistBio" className="block text-sm font-medium text-gray-900 mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    id="artistBio"
+                    name="artistBio"
+                    defaultValue={userDetails?.artistBio || ""}
+                    placeholder="Tell us about your art..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="bg-gray-50 px-6 py-4 -mx-6 -mb-6 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingArtistInfo(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </Form>
+            </div>
+          </div>
+        )}
 
         {/* Modal for selecting artwork when making photo public */}
         {selectedPhotoForPublishing && (

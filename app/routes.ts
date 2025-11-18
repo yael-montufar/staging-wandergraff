@@ -18,8 +18,6 @@ export default [
   route("user/profile", "routes/user.profile.tsx"),
   route("user/settings", "routes/user.settings.tsx"),
   route("user/:id", "routes/user.$id.tsx"),
-  route("admin/setup", "routes/admin.setup.tsx"),
-  route("admin/debug", "routes/admin.debug.tsx"),
   route("admin/dashboard", "routes/admin.dashboard.tsx"),
   route("collection/new", "routes/collection.new.tsx"),
   route("collection/:id", "routes/collection.$id.tsx"),

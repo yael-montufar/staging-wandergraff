@@ -72,13 +72,15 @@ export function UserMenu({ user }: UserMenuProps) {
           >
             📊 Dashboard
           </a>
-          <a
-            href="/user/settings"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            ⚙️ Settings
-          </a>
+          {user.role !== "ADMIN" && (
+            <a
+              href="/user/settings"
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+              onClick={() => setIsOpen(false)}
+            >
+              ⚙️ Settings
+            </a>
+          )}
 
           {/* Divider */}
           <div className="border-t border-gray-200 my-1"></div>

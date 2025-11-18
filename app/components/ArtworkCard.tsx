@@ -6,6 +6,8 @@ export interface ArtworkCardProps {
   imageUrl?: string;
   artistName?: string;
   claimStatus?: "UNCLAIMED" | "PENDING_APPROVAL" | "CLAIMED";
+  artworkArtistId?: string | null;
+  currentUserId?: string;
   photoCount?: number;
   onClick?: () => void;
 }
@@ -16,20 +18,26 @@ export function ArtworkCard({
   imageUrl,
   artistName,
   claimStatus,
+  artworkArtistId,
+  currentUserId,
   photoCount = 0,
   onClick,
 }: ArtworkCardProps) {
+  // Only show PENDING_APPROVAL to the user who made the claim
+  const isClaimMaker = currentUserId === artworkArtistId && claimStatus === "PENDING_APPROVAL";
+  const displayStatus = isClaimMaker ? claimStatus : (claimStatus === "PENDING_APPROVAL" ? "UNCLAIMED" : claimStatus);
+
   const statusLabel = {
     UNCLAIMED: "Unclaimed",
     PENDING_APPROVAL: "Pending",
     CLAIMED: "Claimed",
-  }[claimStatus || "UNCLAIMED"];
+  }[displayStatus || "UNCLAIMED"];
 
   const statusColor = {
     UNCLAIMED: "bg-gray-100 text-gray-800",
     PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
     CLAIMED: "bg-green-100 text-green-800",
-  }[claimStatus || "UNCLAIMED"];
+  }[displayStatus || "UNCLAIMED"];
 
   return (
     <Card
@@ -58,7 +66,8 @@ export function ArtworkCard({
           {title}
         </h3>
 
-        {artistName && (
+        {/* Only show artist name if artwork is claimed by a verified artist */}
+        {artistName && displayStatus === "CLAIMED" && (
           <p className="text-sm text-gray-600 mt-1">by {artistName}</p>
         )}
 

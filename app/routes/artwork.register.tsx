@@ -16,10 +16,12 @@ type ActionData = {
     latitude: number;
     longitude: number;
     claimStatus: string;
+    artistId?: string | null;
     photos: Array<{
       photoUrl: string;
     }>;
   };
+  currentUserId?: string;
 };
 
 export const loader: LoaderFunction = ({ request }) => {
@@ -65,15 +67,16 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
 
   try {
     const { createArtwork, findDuplicateArtworkNearby } = await import("~/lib/artworks.server");
-    
+
     // Check for nearby artworks (dedup detection)
     if (!skipDupCheck) {
       const nearby = await findDuplicateArtworkNearby(latitude, longitude);
-      
+
       if (nearby) {
         console.log("[REGISTER] Found nearby artwork:", nearby.id);
         return {
           duplicateWarning: true,
+          currentUserId: user.id,
           nearbyArtwork: {
             id: nearby.id,
             title: nearby.title,
@@ -81,6 +84,7 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
             latitude: nearby.latitude,
             longitude: nearby.longitude,
             claimStatus: nearby.claimStatus,
+            artistId: nearby.artistId,
             photos: nearby.photos.map((p) => ({ photoUrl: p.photoUrl })),
           },
         };
@@ -401,16 +405,23 @@ export default function RegisterArtworkPage() {
                     📍 {actionData.nearbyArtwork.address}
                   </p>
                 )}
-                <span className={`text-xs font-medium px-2 py-1 rounded ${
-                  actionData.nearbyArtwork.claimStatus === "CLAIMED"
-                    ? "bg-green-100 text-green-800"
-                    : actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                  {actionData.nearbyArtwork.claimStatus === "CLAIMED" ? "Claimed" : 
-                   actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL" ? "Pending Approval" : "Unclaimed"}
-                </span>
+                {(() => {
+                  const isClaimMaker = actionData.currentUserId === actionData.nearbyArtwork.artistId && actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL";
+                  const displayStatus = isClaimMaker ? actionData.nearbyArtwork.claimStatus : (actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL" ? "UNCLAIMED" : actionData.nearbyArtwork.claimStatus);
+
+                  return (
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${
+                      displayStatus === "CLAIMED"
+                        ? "bg-green-100 text-green-800"
+                        : displayStatus === "PENDING_APPROVAL"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}>
+                      {displayStatus === "CLAIMED" ? "Claimed" :
+                       displayStatus === "PENDING_APPROVAL" ? "Pending Approval" : "Unclaimed"}
+                    </span>
+                  );
+                })()}
               </div>
 
               <p className="text-sm text-gray-600 mb-6">

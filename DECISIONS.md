@@ -257,7 +257,7 @@ To prevent duplicate artwork entries, we'll implement a dedup detection algorith
 
 ### Decision: Client-Side Conversion of HEIC/Mobile Formats
 **Date:** Development phase
-**Status:** ��� Implemented
+**Status:** ✅ Implemented
 
 **Problem:**
 - iPhone users upload HEIC format images (Apple's proprietary format)
@@ -692,7 +692,7 @@ Users need full control over their content. Dashboard provides single place to m
 **Solution:**
 - **Simplified Form:** Users only click map to select location
 - **Automatic Address:** Reverse geocoding shows street address instead of coordinates
-- **Placeholder Title:** System creates "Untitled Mural at [Address]" placeholder
+- **Placeholder Title:** System creates "Untitled | [Address]" placeholder
 - **Artist Editing:** When artist claims artwork, they provide actual Title/Year/Description
 
 **Implementation Details:**
@@ -802,6 +802,195 @@ Artwork {
 
 ---
 
+## Artist Claim System
+
+### Decision: Artist Claim System with Visibility & Rate Limiting
+**Date:** Session 5-6
+**Status:** ✅ Implemented
+
+**Problem:**
+- Need to establish true artwork ownership separate from who pinned/documented it
+- Artists need to claim artworks they created to establish credibility
+- Admins need to verify claims (outside platform scope - direct communication)
+- Multiple artists could claim the same artwork (admin must choose true artist)
+- System needs to prevent spam claims and allow cooldown periods
+
+**Solution: Three-Stage Claim Status with Visibility Control**
+
+**Three Claim Statuses:**
+1. **UNCLAIMED** (default)
+   - Anyone can view the artwork
+   - "Claim This Artwork" button visible for ARTIST-role users
+   - Title is placeholder ("Untitled | [Address]")
+
+2. **PENDING_APPROVAL** (artist claimed, awaiting admin review)
+   - **Only the artist who made the claim sees this status**
+   - Other visitors see "Unclaimed" instead
+   - Claim maker sees: "Claim Pending Admin Review", pending count (X/3), "Withdraw Claim" button
+   - Claim maker cannot edit metadata yet
+   - Admin sees claim in dashboard for verification (outside platform - direct communication)
+
+3. **CLAIMED** (admin approved)
+   - Everyone sees "Claimed by Artist"
+   - Artist is officially credited with name displayed
+   - Artist can edit: title, year created, description
+   - Official Gallery accessible (artist's curated photos)
+
+**Visibility Rules:**
+- **For the claim maker**: Sees "Pending Approval" badge, pending count (X/3), withdraw option
+- **For everyone else**: See "Unclaimed" until admin approves
+- **After approval**: Everyone sees "Claimed by Artist"
+
+**Claim Rate Limiting:**
+- **Maximum 3 open/pending claims per artist at any time**
+- Only applies to PENDING_APPROVAL status, not CLAIMED
+- Artists can "Withdraw Claim" to free up a slot for another artwork
+- Unlimited CLAIMED artworks (no limit on approved claims)
+
+**Rejection & Cooldown:**
+- When admin rejects a claim, artwork returns to UNCLAIMED
+- Artist cannot re-claim the same artwork for **2 weeks** (cooldown period)
+- After 2 weeks, artist can re-submit claim (like YouTube copyright strikes)
+- Cooldown is per-artwork per-artist (tracked by rejectedAt timestamp)
+
+**Withdraw Claim Feature:**
+- Artists can withdraw their pending claim anytime via "Withdraw Claim" button
+- Returns artwork to UNCLAIMED status
+- Frees up a claim slot immediately (no penalty)
+- No cooldown triggered by voluntary withdrawal
+
+**Metadata Editing Post-Claim:**
+- After CLAIMED status, artist can edit:
+  - **Title**: Proper name of the artwork
+  - **Year Created**: Year the artwork was completed (not pinning date, not photo upload date)
+  - **Description**: Artist statement, techniques, materials, etc.
+- Placeholder title no longer applies
+
+**Data Model:**
+```
+Artwork {
+  claimStatus: UNCLAIMED | PENDING_APPROVAL | CLAIMED
+  artistId: String? (artist who made the claim)
+  rejectedAt: DateTime? (timestamp when claim was last rejected, for cooldown enforcement)
+  title: String (placeholder until artist claims and provides real title)
+  yearCreated: Int? (empty until artist provides)
+  description: String? (empty until artist provides)
+}
+
+User {
+  role: REGULAR_USER | ARTIST | ADMIN
+  // Direct role assignment, no approval needed for artist status
+}
+```
+
+**Error Messages for Artists:**
+- "You already have 3 pending claims. Complete or withdraw one to make another claim."
+- "This artwork was recently rejected. Please wait 2 weeks before re-submitting your claim."
+
+**Benefits:**
+- ✅ Clear workflow for artist verification with multiple claim handling
+- ✅ Prevents spam with 3-pending limit
+- ✅ Cooldown prevents immediate re-submission after rejection
+- ✅ Privacy: Non-claimers don't see pending claims until approved
+- ✅ Separates documentation (pinner) from creation (artist)
+- ✅ Gives artists control over their own metadata
+- ✅ Admins have flexibility in verification approach
+- ✅ Reversible process (withdraw claim or wait for cooldown)
+
+---
+
+### Decision: Simplified Artist Onboarding (No Approval Required)
+**Date:** Session 5-6
+**Status:** ✅ Implemented
+
+**Problem with Previous Approach:**
+- Requiring admin approval for users to become artists created unnecessary friction
+- Platform references (Twitter verification, Spotify artist accounts, YouTube creator status) don't require blanket approval
+- Only artwork *claims* need verification, not artist role assignment
+- Users should be able to self-declare as artists immediately
+
+**Solution:**
+- **Direct Artist Role Assignment**: Users can toggle to ARTIST role immediately from user profile
+- **Contact Information Collection**: When becoming an artist, users provide optional contact info:
+  - Artist Name (different from account name if desired)
+  - Contact Email
+  - Instagram Handle
+  - Twitter Handle
+  - Website/Portfolio URL
+  - Bio
+- **Admin Communication**: Admins view all registered artists in dashboard with their contact info
+- **Direct Outreach**: When approving claims, admins reach out directly to artists via provided contact info
+- **No Approval Process for Role**: Role change is instant, no admin approval needed
+
+**Workflow:**
+1. Regular user visits `/user/profile`
+2. If `role: REGULAR_USER`, shows "Become an Artist" button
+3. User clicks → modal form with optional contact fields
+4. User provides any/all contact info they're comfortable sharing
+5. Submits → role immediately changed to ARTIST
+6. Artist profile section appears showing their contact info
+7. Artist can edit their contact info anytime via "Edit Artist Info" button
+
+**Admin Dashboard:**
+- Registered Artists section shows all users with `role: ARTIST`
+- Displays: Artist name, contact email, Instagram, Twitter, website, bio
+- Contact links are clickable (email, social media URLs)
+- Used for direct outreach when claim decisions are needed
+
+**Verification Model:**
+- **Artist Role**: No verification needed, self-declaration
+- **Artwork Claims**: Require admin approval (separate process)
+- **Admin Verification**: Happens via direct communication (email/DMs/socials)
+- **Claim Denial & Re-submission**: Like YouTube copyright strikes:
+  - Admins can deny a claim, artwork returns to UNCLAIMED
+  - Artist can re-submit claim after addressing concerns (no cooldown period yet)
+
+**Benefits:**
+- ✅ No friction for users becoming artists
+- ✅ Aligns with how other platforms handle creator/artist status
+- ✅ Direct communication preferred for verification
+- ✅ Contact info optional but encouraged (artists can add later)
+- ✅ Simple, clear separation: artist role ≠ claim verification
+- ✅ Flexible re-submission for denied claims
+
+**Data Model:**
+```
+User {
+  role: REGULAR_USER | ARTIST | ADMIN
+  artistName: String?      // Different from account name if desired
+  artistEmail: String?     // For admin outreach
+  artistInstagram: String? // Handle without @
+  artistTwitter: String?   // Handle without @
+  artistWebsite: String?   // Full URL
+  artistBio: String?       // About the artist
+}
+```
+
+**No Longer Needed:**
+- ~~ArtistRequest model~~ (removed from schema)
+- ~~Artist request approval/rejection flow~~ (removed from admin dashboard)
+- ~~Approval notification system~~ (direct communication instead)
+
+---
+
+## Future Work & Planned Features
+
+### Phase 2 Onboarding & Claims
+- ✅ Claim button implementation on artwork detail page
+- ✅ PENDING_APPROVAL to CLAIMED flow (admin dashboard)
+- ⏳ Separate artist onboarding flow (request → admin approval → ARTIST role)
+- ⏳ Metadata editing for claimed artworks (title, year, description)
+
+### Phase 2+ Features
+- [ ] Artist portfolios (claimed artworks gallery)
+- [ ] Artist verification badges (multiple levels)
+- [ ] Claim proof submission (optional proof documents)
+- [ ] Artist statistics (total artworks, reach, impact)
+- [ ] Collection following (follow artists, follow collections)
+- [ ] Artist messaging (direct communication on platform)
+
+---
+
 ## Document History
 
 | Version | Date | Key Changes |
@@ -814,8 +1003,12 @@ Artwork {
 | 1.5 | Session 3 | Added user profile system: dashboard, public profiles, collections, attribution |
 | 1.6 | Session 4 | Simplified pinning to location-only with auto-geocoding and dedup detection |
 | 1.7 | Session 4 | Added admin superuser role, pin management/deletion, enhanced user dashboard with photo nesting |
+| 1.8 | Session 4 | Admin auto-redirect, logout UI, documented future: artist onboarding & claim approvals |
+| 1.9 | Session 5 | Finalized artist claim flow with PENDING_APPROVAL → CLAIMED workflow, claim button logic, metadata editing, proposed separate artist onboarding |
+| 2.0 | Session 6 | Simplified artist onboarding: removed approval requirement, added direct role assignment with contact info collection, updated admin dashboard to show artists directory |
+| 2.1 | Session 6 | Added claim visibility rules: only claim maker sees pending status, non-claimers see unclaimed. Added rate limiting (3 pending claims), cooldown (2 weeks after rejection), withdraw claim feature |
 
 ---
 
-**Last Updated:** [Current Session]
-**Next Review:** When next major decision is made or architecture changes significantly
+**Last Updated:** Session 6
+**Next Review:** When implementing admin claim approval/rejection workflow

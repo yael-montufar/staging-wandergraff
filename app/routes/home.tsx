@@ -1,4 +1,4 @@
-import { useRouteLoaderData } from "react-router";
+import { useRouteLoaderData, redirect } from "react-router";
 import type { Route } from "./+types/home";
 import { Navigation } from "../components/Navigation";
 import { Button } from "../components/ui/Button";
@@ -7,13 +7,33 @@ import { GalleryGrid } from "../components/GalleryGrid";
 import { ArtworkCard } from "../components/ArtworkCard";
 import { getRecentArtworks } from "../lib/artworks.server";
 
-export const loader: Route.LoaderFunction = async () => {
+export const loader: Route.LoaderFunction = async ({ request }) => {
+  // Check if user is admin and redirect to dashboard
+  const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
+  const { prismaClient } = await import("~/lib/db.server");
+
+  const cookieHeader = request.headers.get("cookie");
+  const token = getAuthTokenFromCookie(cookieHeader);
+  const user = getUserFromToken(token);
+
+  if (user) {
+    const prisma = await prismaClient();
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
+    if (dbUser?.role === "ADMIN") {
+      return redirect("/admin/dashboard");
+    }
+  }
+
   try {
     const artworks = await getRecentArtworks(20);
-    return { artworks };
+    return { artworks, currentUserId: user?.id };
   } catch (error) {
     console.error("[HOME] Error loading artworks:", error);
-    return { artworks: [] };
+    return { artworks: [], currentUserId: user?.id };
   }
 };
 
@@ -21,6 +41,7 @@ export default function HomePage() {
   const rootData = useRouteLoaderData("root") as any;
   const loaderData = useRouteLoaderData("routes/home") as any;
   const artworks = loaderData?.artworks ?? [];
+  const currentUserId = loaderData?.currentUserId;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -89,6 +110,8 @@ export default function HomePage() {
                   imageUrl={artwork.photos?.[0]?.photoUrl}
                   artistName={artwork.artist?.name}
                   claimStatus={artwork.claimStatus}
+                  artworkArtistId={artwork.artistId}
+                  currentUserId={currentUserId}
                   photoCount={artwork.photos?.length ?? 0}
                   onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
                 />

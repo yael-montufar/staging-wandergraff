@@ -18,6 +18,15 @@ model User {
   role      UserRole @default(REGULAR_USER)
   avatarUrl String?
   bio       String?
+
+  // Artist contact information
+  artistName    String?
+  artistWebsite String?
+  artistEmail   String?
+  artistInstagram String?
+  artistTwitter String?
+  artistBio     String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -55,6 +64,7 @@ model Artwork {
   claimStatus   ClaimStatus @default(UNCLAIMED)
   createdById   String
   artistId      String?
+  rejectedAt    DateTime?  // Timestamp of when claim was last rejected (for cooldown enforcement)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

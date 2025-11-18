@@ -43,6 +43,7 @@ export const loader: Route.LoaderFunction = async ({ params, request }) => {
       user,
       collection,
       isOwner,
+      currentUserId: user?.id,
     };
   } catch (error) {
     console.error("[COLLECTION] Error loading collection:", error);
@@ -90,8 +91,8 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
 
 export default function CollectionPage() {
   const rootData = useRouteLoaderData("root") as any;
-  const loaderData = useRouteLoaderData("routes/collection.$id") as LoaderData;
-  const { collection, isOwner } = loaderData;
+  const loaderData = useRouteLoaderData("routes/collection.$id") as LoaderData & { currentUserId?: string };
+  const { collection, isOwner, currentUserId } = loaderData;
 
   if (!collection) {
     return (
@@ -248,23 +249,30 @@ export default function CollectionPage() {
                     )}
 
                     {/* Status Badge */}
-                    <div className="mt-3 mb-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          artwork.claimStatus === "CLAIMED"
-                            ? "bg-green-100 text-green-700"
-                            : artwork.claimStatus === "PENDING_APPROVAL"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {artwork.claimStatus === "CLAIMED"
-                          ? "Claimed by Artist"
-                          : artwork.claimStatus === "PENDING_APPROVAL"
-                          ? "Pending Approval"
-                          : "Unclaimed"}
-                      </span>
-                    </div>
+                    {(() => {
+                      const isClaimMaker = currentUserId === artwork.artistId && artwork.claimStatus === "PENDING_APPROVAL";
+                      const displayStatus = isClaimMaker ? artwork.claimStatus : (artwork.claimStatus === "PENDING_APPROVAL" ? "UNCLAIMED" : artwork.claimStatus);
+
+                      return (
+                        <div className="mt-3 mb-3">
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${
+                              displayStatus === "CLAIMED"
+                                ? "bg-green-100 text-green-700"
+                                : displayStatus === "PENDING_APPROVAL"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {displayStatus === "CLAIMED"
+                              ? "Claimed by Artist"
+                              : displayStatus === "PENDING_APPROVAL"
+                              ? "Pending Approval"
+                              : "Unclaimed"}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Actions */}
                     {isOwner ? (
