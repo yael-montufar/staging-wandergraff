@@ -67,6 +67,10 @@ export function Header({ user }: HeaderProps) {
     setSelectedScheme(newTheme);
     if (typeof window !== "undefined") {
       localStorage.setItem("wandergraff-theme", newTheme);
+      // Dispatch custom event for other components to listen to
+      window.dispatchEvent(
+        new CustomEvent("wandergraff-theme-change", { detail: { theme: newTheme } })
+      );
     }
   };
 
