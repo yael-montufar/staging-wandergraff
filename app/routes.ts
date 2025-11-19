@@ -24,5 +24,12 @@ export default [
   route("collection/new", "routes/collection.new.tsx"),
   route("collection/:id", "routes/collection.$id.tsx"),
   route("collection/:id/edit", "routes/collection.$id.edit.tsx"),
+  route("artists", "routes/artists.tsx"),
+  route("artists/:letter", "routes/artists.$letter.tsx"),
+  route("artist/:artistId", "routes/artist.$artistId.tsx"),
+  route("countries", "routes/countries.tsx"),
+  route("countries/:id", "routes/countries.$id.tsx"),
+  route("years", "routes/years.tsx"),
+  route("years/:year", "routes/years.$year.tsx"),
   route("test/header", "routes/test.header.tsx"),
 ] satisfies RouteConfig;

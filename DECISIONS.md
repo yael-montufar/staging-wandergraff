@@ -1010,5 +1010,88 @@ User {
 
 ---
 
-**Last Updated:** Session 6
-**Next Review:** When implementing admin claim approval/rejection workflow
+## Browse Pages Navigation Strategy
+
+### Decision: Hardcoded A-Z for Artists, Dynamic-Ready for Years & Countries
+**Date:** Session 7
+**Status:** ✅ Implemented
+
+**Problem:**
+- Routes should be auto-generated when data exists in database
+- Artists might not exist for every letter, but should show A-Z anyway
+- Countries and years are derived from artworks, so only relevant ones appear
+- Need clarity on navigation strategy across browse pages
+
+**Solution:**
+
+**Artists Browse Page (`/artists`):**
+- Display hardcoded **A-Z alphabet** (all 26 letters always visible)
+- Use infinite scroll loading (load 3 letters initially, then 1 more as user scrolls)
+- Some letters may have zero artists (empty page when clicked) - **this is acceptable**
+- Individual artist pages at `/artist/:artistId` with slug format (`alex-peniche`, `yael-montufar`)
+- Shows artworks for that specific artist
+
+**Layout:**
+- Grouped by letter with divider lines
+- Grid layout: 2 columns (mobile), 3 (tablet), 4 (desktop)
+- Hover effects match countries/years pages (border highlight + background shift)
+- Infinite scroll improves UX for displaying all artists
+
+**Years & Countries (Future Implementation):**
+- Years: Dynamic query from `Artwork.yearCreated` distinct values
+  - Year range TBD (to be determined when revisiting countries/years)
+  - Only years with associated artworks appear
+- Countries: Requires schema update first
+  - Currently no `country` field in Artwork model (only coordinates + address)
+  - Once added, will query distinct country values from artworks
+  - Only countries with associated artworks appear
+
+**Why This Approach:**
+
+1. **Artists (Always A-Z):**
+   - Users expect alphabet navigation for names
+   - Aligns with common UX patterns (phone contacts, business directories)
+   - Some letters being empty is normal and acceptable
+   - Avoids dynamic loading complexity for this phase
+
+2. **Years & Countries (Dynamic):**
+   - Both derived from artwork data (less likely to have empty entries)
+   - Geography changes, years change - makes sense to be dynamic
+   - Easier to implement dynamic loading once database integration is complete
+   - Avoids showing irrelevant options (e.g., countries with no artworks)
+
+**Data Model Notes:**
+- Current Artwork schema has `yearCreated: Int?` field (ready for years queries)
+- Current Artwork schema **lacks** `country` field (blockers implementation)
+- User schema has `artistName` field (available for artist queries if needed)
+
+**Future Work:**
+- [ ] Implement dynamic year/country queries when database is wired
+- [ ] Add `country` field to Artwork schema
+- [ ] Determine year range (minimum/maximum, or all distinct values)
+- [ ] Consider location hierarchy: city, state, country (revisit when building map features)
+
+**Implementation Details:**
+- File: `app/routes/artists.tsx` - infinite scroll with hardcoded A-Z
+- File: `app/routes/artist.$artistId.tsx` - individual artist detail page
+- Mock data: 8 artists per letter currently
+- Hover effects: Border color change (accent), background shift (primary)
+- Responsive: 2-4 column grid depending on viewport
+
+**Benefits:**
+- ✅ Consistent UX for alphabet navigation (familiar pattern)
+- ✅ No empty browse pages (users can explore any letter)
+- ✅ Ready for future dynamic implementation (just replace hardcoded arrays)
+- ✅ Clear separation: static (A-Z) vs dynamic (years, countries)
+- ✅ Infinite scroll improves perceived performance
+
+**Limitations & Future Improvements:**
+- Some letters will be empty (acceptable for MVP)
+- Not dynamic (to revisit after country schema update)
+- No special character support yet (though could add 0-9 + special chars if needed later)
+- Special characters: Could add if artists with names like "!@#$%*" or "1up crew" exist
+
+---
+
+**Last Updated:** Session 7
+**Next Review:** When implementing database integration for years/countries, or adding special character support

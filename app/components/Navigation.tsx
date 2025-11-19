@@ -27,22 +27,22 @@ export function Navigation({ user }: NavigationProps) {
           {/* Center Discovery Links */}
           <div className="hidden md:flex items-center justify-center flex-1 space-x-8">
             <a
-              href="/discover/artists"
+              href="/artists"
               className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
             >
               Artists
             </a>
             <a
-              href="/discover/years"
+              href="/countries"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+            >
+              Countries
+            </a>
+            <a
+              href="/years"
               className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
             >
               Years
-            </a>
-            <a
-              href="/discover/countries"
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-            >
-              Locations
             </a>
             <a
               href="/map"

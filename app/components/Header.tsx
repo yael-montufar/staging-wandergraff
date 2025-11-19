@@ -357,7 +357,7 @@ export function Header({ user }: HeaderProps) {
                 Home
               </a>
               <a
-                href="/discover/artists"
+                href="/artists"
                 style={{
                   backgroundColor: scheme.accent,
                   color: "#FFFFFF",
@@ -367,7 +367,7 @@ export function Header({ user }: HeaderProps) {
                 Artists
               </a>
               <a
-                href="/discover/countries"
+                href="/countries"
                 style={{
                   backgroundColor: scheme.accent,
                   color: "#FFFFFF",
@@ -387,7 +387,7 @@ export function Header({ user }: HeaderProps) {
                 Map
               </a>
               <a
-                href="/discover/years"
+                href="/years"
                 style={{
                   backgroundColor: scheme.accent,
                   color: "#FFFFFF",
