@@ -175,6 +175,12 @@ export default function MapPage() {
         const L = leafletRef.current;
         const map = mapInstance.current;
 
+        // Remove old marker cluster group if it exists
+        if (artworkMarkers.current && map.hasLayer(artworkMarkers.current)) {
+          map.removeLayer(artworkMarkers.current);
+          console.log("[MAP FETCH] Removed old marker cluster group");
+        }
+
         // Check if markerClusterGroup is available
         if (typeof (L as any).markerClusterGroup !== "function") {
           console.warn("Marker cluster plugin not available, adding markers without clustering");
@@ -695,6 +701,41 @@ export default function MapPage() {
     setSelectedArtwork(null);
   };
 
+  const handleMarkerCleared = () => {
+    // Remove the temporary marker from the map
+    if (markerInstance.current && mapInstance.current && mapInstance.current.hasLayer(markerInstance.current)) {
+      mapInstance.current.removeLayer(markerInstance.current);
+      markerInstance.current = null;
+    }
+    // Clear selected marker state
+    setSelectedMarker(null);
+  };
+
+  const handleRefreshPins = () => {
+    if (!mapInstance.current || !fetchPinsRef.current) return;
+
+    const bounds = mapInstance.current.getBounds();
+    const currentZoomLevel = mapInstance.current.getZoom();
+
+    console.log("[MAP PIN REFRESH] Refreshing pins after artwork creation");
+    console.log("[MAP PIN REFRESH] Current zoom level:", currentZoomLevel);
+
+    if (bounds) {
+      const { _northEast, _southWest } = bounds;
+      const viewportBounds = {
+        minLat: _southWest.lat,
+        maxLat: _northEast.lat,
+        minLng: _southWest.lng,
+        maxLng: _northEast.lng,
+      };
+      console.log("[MAP PIN REFRESH] Viewport bounds:", viewportBounds);
+      fetchPinsRef.current(viewportBounds, currentZoomLevel);
+    } else {
+      console.log("[MAP PIN REFRESH] No bounds available, fetching all artworks");
+      fetchPinsRef.current(undefined, currentZoomLevel);
+    }
+  };
+
   const handleRefreshArtworks = () => {
     if (!mapInstance.current || !fetchPinsRef.current) return;
 
@@ -739,6 +780,8 @@ export default function MapPage() {
         onRefresh={handleRefreshArtworks}
         isRefreshing={isRefreshing}
         onBackToList={handleBackToList}
+        onMarkerCleared={handleMarkerCleared}
+        onRefreshPins={handleRefreshPins}
       />
 
       {/* Map Container */}

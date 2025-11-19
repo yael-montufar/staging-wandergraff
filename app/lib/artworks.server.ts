@@ -30,16 +30,26 @@ export async function createArtwork(
 
   const prisma = await prismaClient();
 
-  // Debug: Check if user exists
-  console.log("[ARTWORK] Creating artwork for user:", createdById);
-  const userExists = await prisma.user.findUnique({
+  // Ensure user exists in database (in case of race condition after auth)
+  console.log("[ARTWORK] Ensuring user exists in DB:", createdById);
+  const user = await prisma.user.findUnique({
     where: { id: createdById },
     select: { id: true, email: true },
   });
-  console.log("[ARTWORK] User exists in DB:", userExists);
 
-  if (!userExists) {
-    throw new Error(`User with ID ${createdById} not found in database`);
+  if (!user) {
+    console.log("[ARTWORK] User not found, creating placeholder user");
+    // Create a minimal user record if it doesn't exist
+    // This handles race conditions where user creation API call was delayed/failed
+    await prisma.user.create({
+      data: {
+        id: createdById,
+        email: `user-${createdById}@wandergraff.local`,
+        name: `User ${createdById.slice(0, 8)}`,
+        role: "REGULAR_USER",
+      },
+    });
+    console.log("[ARTWORK] User created successfully");
   }
 
   // Get address if not provided

@@ -8,6 +8,7 @@ export default [
   route("auth/callback", "routes/auth.callback.tsx"),
   route("api/auth/create-user", "routes/api.auth.create-user.tsx"),
   route("api/artwork/upload", "routes/api.artwork.upload.tsx"),
+  route("api/artwork/upload-with-pin", "routes/api.artwork.upload-with-pin.tsx"),
   route("api/user/upload-avatar", "routes/api.user.upload-avatar.tsx"),
   route("api/artworks/search", "routes/api.artworks.search.tsx"),
   route("api/artworks/check-location", "routes/api.artworks.check-location.tsx"),

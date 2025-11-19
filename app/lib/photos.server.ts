@@ -62,9 +62,64 @@ export async function updatePhoto(
 export async function deletePhoto(id: string) {
   const prisma = await prismaClient();
 
-  return prisma.photo.delete({
+  // Get photo before deleting to access artworkId
+  const photo = await prisma.photo.findUnique({
+    where: { id },
+    select: { artworkId: true },
+  });
+
+  if (!photo) {
+    throw new Error(`Photo with ID ${id} not found`);
+  }
+
+  // Delete the photo
+  await prisma.photo.delete({
     where: { id },
   });
+
+  console.log("[PHOTO] Deleted photo:", id);
+
+  // If photo was associated with an artwork, check if artwork still has photos
+  if (photo.artworkId) {
+    console.log("[PHOTO] Checking if artwork still has photos:", photo.artworkId);
+
+    // Get artwork claim status
+    const artwork = await prisma.artwork.findUnique({
+      where: { id: photo.artworkId },
+      select: { claimStatus: true },
+    });
+
+    if (!artwork) {
+      console.log("[PHOTO] Artwork not found:", photo.artworkId);
+      return;
+    }
+
+    const remainingPhotos = await prisma.photo.count({
+      where: { artworkId: photo.artworkId },
+    });
+
+    console.log("[PHOTO] Remaining photos for artwork:", remainingPhotos);
+    console.log("[PHOTO] Artwork claim status:", artwork.claimStatus);
+
+    // Only auto-delete if:
+    // 1. No photos remain AND
+    // 2. Artwork is UNCLAIMED (not being actively curated by an artist)
+    if (remainingPhotos === 0 && artwork.claimStatus === "UNCLAIMED") {
+      console.log("[PHOTO] No photos and artwork is unclaimed, deleting artwork:", photo.artworkId);
+
+      try {
+        // Import deleteArtwork to avoid circular dependency
+        const { deleteArtwork } = await import("./artworks.server");
+        await deleteArtwork(photo.artworkId);
+        console.log("[PHOTO] Artwork auto-deleted due to no remaining photos and unclaimed status");
+      } catch (error) {
+        console.error("[PHOTO] Error auto-deleting artwork:", error);
+        // Don't throw - photo is already deleted successfully
+      }
+    } else if (remainingPhotos === 0 && artwork.claimStatus !== "UNCLAIMED") {
+      console.log("[PHOTO] Artwork is claimed/pending, preserving despite no photos for artist curation");
+    }
+  }
 }
 
 export async function getPhotosByArtwork(

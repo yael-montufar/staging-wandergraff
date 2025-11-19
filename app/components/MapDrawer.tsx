@@ -1,6 +1,7 @@
 import { useState, memo } from "react";
 import logoBlack from "../assets/wandergraff-logo-black.png?url";
 import logoWhite from "../assets/wandergraff-logo-white.png?url";
+import PhotoUploadForm from "./PhotoUploadForm";
 
 interface MapMarker {
   lat: number;
@@ -37,6 +38,8 @@ interface MapDrawerProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   onBackToList?: () => void;
+  onMarkerCleared?: () => void;
+  onRefreshPins?: () => void;
 }
 
 function MapDrawerContent({
@@ -52,8 +55,12 @@ function MapDrawerContent({
   onRefresh,
   isRefreshing = false,
   onBackToList,
+  onMarkerCleared,
+  onRefreshPins,
 }: MapDrawerProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const hasContent = !!marker || !!existingArtwork;
   const isShowingDetail = !!marker || !!existingArtwork;
 
@@ -282,6 +289,70 @@ function MapDrawerContent({
                       Checking location...
                     </p>
                   </div>
+                ) : uploadSuccess ? (
+                  <div className="text-center pt-6">
+                    <div className="inline-block">
+                      <div
+                        className="rounded-full p-3"
+                        style={{ backgroundColor: scheme.accent + "20" }}
+                      >
+                        <svg
+                          className="w-8 h-8"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          style={{ color: scheme.accent }}
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="mt-4 font-medium" style={{ color: scheme.text }}>
+                      Artwork pinned! ✓
+                    </p>
+                    <p className="text-xs opacity-75 mt-2" style={{ color: scheme.text }}>
+                      Your photo has been uploaded
+                    </p>
+                    <button
+                      onClick={() => {
+                        setUploadSuccess(false);
+                        setIsUploadingPhoto(false);
+                        onMarkerCleared?.();
+                        onRefreshPins?.();
+                        onBackToList?.();
+                      }}
+                      className="mt-4 w-full py-2 px-4 rounded-lg font-medium text-white transition-all"
+                      style={{
+                        backgroundColor: scheme.accent,
+                      }}
+                    >
+                      ← Back to Map
+                    </button>
+                  </div>
+                ) : isUploadingPhoto && user ? (
+                  <>
+                    <p
+                      className="text-xs font-semibold mb-3"
+                      style={{ color: scheme.text }}
+                    >
+                      📸 UPLOAD PHOTO TO PIN
+                    </p>
+                    <PhotoUploadForm
+                      latitude={marker.lat}
+                      longitude={marker.lng}
+                      address={marker.address}
+                      scheme={scheme}
+                      onSuccess={(artworkId) => {
+                        setUploadSuccess(true);
+                      }}
+                      onCancel={() => {
+                        setIsUploadingPhoto(false);
+                      }}
+                    />
+                  </>
                 ) : (
                   <>
                     {/* Coordinates */}
@@ -311,61 +382,45 @@ function MapDrawerContent({
                     </div>
 
                     {/* Pin Button */}
-                    {!isLoadingAddress &&
-                      (user ? (
-                        <form
-                          method="POST"
-                          action="/artwork/register"
-                          className="pt-2"
-                        >
-                          <input type="hidden" name="latitude" value={marker.lat} />
-                          <input type="hidden" name="longitude" value={marker.lng} />
-                          <input
-                            type="hidden"
-                            name="address"
-                            value={marker.address || ""}
-                          />
-                          <button
-                            type="submit"
-                            className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all"
-                            style={{
-                              backgroundColor: scheme.accent,
-                            }}
-                          >
-                            📍 Pin Artwork
-                          </button>
-                        </form>
-                      ) : (
-                        <form
-                          method="POST"
-                          action="/auth/login"
-                          className="pt-2"
-                          onSubmit={() => {
-                            // Save marker data in sessionStorage for redirect after login
-                            if (marker) {
-                              sessionStorage.setItem(
-                                "pending-pin-marker",
-                                JSON.stringify({
-                                  lat: marker.lat,
-                                  lng: marker.lng,
-                                  address: marker.address,
-                                })
-                              );
-                            }
+                    {user ? (
+                      <button
+                        onClick={() => setIsUploadingPhoto(true)}
+                        className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all"
+                        style={{
+                          backgroundColor: scheme.accent,
+                        }}
+                      >
+                        📸 Upload Photo to Pin
+                      </button>
+                    ) : (
+                      <form
+                        method="POST"
+                        action="/auth/login"
+                        onSubmit={() => {
+                          if (marker) {
+                            sessionStorage.setItem(
+                              "pending-pin-marker",
+                              JSON.stringify({
+                                lat: marker.lat,
+                                lng: marker.lng,
+                                address: marker.address,
+                              })
+                            );
+                          }
+                        }}
+                      >
+                        <input type="hidden" name="provider" value="google" />
+                        <button
+                          type="submit"
+                          className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all"
+                          style={{
+                            backgroundColor: scheme.accent,
                           }}
                         >
-                          <input type="hidden" name="provider" value="google" />
-                          <button
-                            type="submit"
-                            className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all"
-                            style={{
-                              backgroundColor: scheme.accent,
-                            }}
-                          >
-                            Sign in to Pin Artwork
-                          </button>
-                        </form>
-                      ))}
+                          Sign in to Pin Artwork
+                        </button>
+                      </form>
+                    )}
                   </>
                 )}
               </div>
