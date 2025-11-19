@@ -1,6 +1,6 @@
 import { redirect, Form, useActionData, useRouteLoaderData } from "react-router";
 import type { Route } from "./+types/user.settings";
-import { Navigation } from "~/components/Navigation";
+import { Header } from "~/components/Header";
 import { useState, useRef, useEffect } from "react";
 
 type LoaderData = {
@@ -191,8 +191,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={rootData?.user} />
+    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <Header user={rootData?.user} />
 
       <main className="max-w-2xl mx-auto px-4 py-12">
         {/* Back Button */}

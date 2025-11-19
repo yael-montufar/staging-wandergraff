@@ -1,7 +1,7 @@
 import { type LoaderFunction, type ActionFunction, redirect, useLoaderData, useActionData, useSearchParams, useRouteLoaderData } from "react-router";
 import { useState, useRef } from "react";
 import { getAuthTokenFromCookie, getUserFromToken } from "~/lib/auth.server";
-import { Navigation } from "~/components/Navigation";
+import { Header } from "~/components/Header";
 
 type LoaderData = {
   artworks: Array<{
@@ -287,8 +287,8 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={rootData?.user} />
+    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <Header user={rootData?.user} />
 
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">

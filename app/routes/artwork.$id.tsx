@@ -1,7 +1,7 @@
 import { useParams, useRouteLoaderData, useFetcher, useNavigate, useRevalidator } from "react-router";
 import { useState, useEffect } from "react";
 import type { Route } from "./+types/artwork.$id";
-import { Navigation } from "../components/Navigation";
+import { Header } from "../components/Header";
 import { Button } from "../components/ui/Button";
 import { AddToWallButton } from "../components/AddToWallButton";
 import { getArtwork, claimArtwork } from "../lib/artworks.server";
@@ -273,8 +273,8 @@ export default function ArtworkDetailPage() {
 
   if (!artwork) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation user={rootData?.user} />
+      <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+        <Header user={rootData?.user} />
         <main className="max-w-4xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Artwork Not Found</h1>
@@ -315,8 +315,8 @@ export default function ArtworkDetailPage() {
   const primaryPhoto = officialPhotos[0] || communityPhotos[0];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={rootData?.user} />
+    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <Header user={rootData?.user} />
 
       <main className="max-w-4xl mx-auto px-4 py-12">
         {/* Header with Back Button */}

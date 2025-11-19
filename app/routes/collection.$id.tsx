@@ -1,6 +1,6 @@
 import { redirect, useRouteLoaderData, Form } from "react-router";
 import type { Route } from "./+types/collection.$id";
-import { Navigation } from "~/components/Navigation";
+import { Header } from "~/components/Header";
 
 type LoaderData = {
   user?: {
@@ -96,8 +96,8 @@ export default function CollectionPage() {
 
   if (!collection) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation user={rootData?.user} />
+      <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+        <Header user={rootData?.user} />
         <main className="max-w-4xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
@@ -115,8 +115,8 @@ export default function CollectionPage() {
   const items = collection.items || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={rootData?.user} />
+    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <Header user={rootData?.user} />
 
       <main className="max-w-4xl mx-auto px-4 py-12">
         {/* Back Button */}

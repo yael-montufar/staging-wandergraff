@@ -1,6 +1,6 @@
 import { useRouteLoaderData, redirect } from "react-router";
 import type { Route } from "./+types/home";
-import { Navigation } from "../components/Navigation";
+import { Header } from "../components/Header";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { GalleryGrid } from "../components/GalleryGrid";
@@ -44,8 +44,8 @@ export default function HomePage() {
   const currentUserId = loaderData?.currentUserId;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={rootData?.user} />
+    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <Header user={rootData?.user} />
 
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Gallery Section */}
