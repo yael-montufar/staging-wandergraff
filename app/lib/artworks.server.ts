@@ -1,6 +1,14 @@
 import { calculateDistance, isValidCoordinates } from "./geo";
 import { prismaClient } from "./db.server";
-import { reverseGeocode } from "./geocoding.server";
+import { reverseGeocode, extractCountryFromCoordinates } from "./geocoding.server";
+import {
+  ensureCountryExists,
+  ensureArtistExists,
+  ensureYearExists,
+  updateCountryCount,
+  updateArtistCount,
+  updateYearCount
+} from "./curation.server";
 
 const PROXIMITY_RADIUS_METERS = 20;
 
@@ -44,7 +52,7 @@ export async function createArtwork(
   // Generate placeholder title if not provided
   const title = options?.title || `Untitled | ${address || "Unknown Location"}`;
 
-  return prisma.artwork.create({
+  const artwork = await prisma.artwork.create({
     data: {
       title,
       latitude,
@@ -56,6 +64,12 @@ export async function createArtwork(
       artistId: options?.artistId,
     },
   });
+
+  // Auto-create country counter for this artwork
+  console.log("[ARTWORK] Ensuring country exists for coordinates:", latitude, longitude);
+  await ensureCountryExists(latitude, longitude);
+
+  return artwork;
 }
 
 export async function getArtwork(id: string) {
@@ -94,6 +108,29 @@ export async function updateArtwork(
 export async function deleteArtwork(id: string) {
   const prisma = await prismaClient();
 
+  // Get artwork details before deleting
+  const artwork = await prisma.artwork.findUnique({
+    where: { id },
+    include: {
+      photos: true,
+      artist: true,
+    },
+  });
+
+  if (!artwork) {
+    throw new Error(`Artwork with ID ${id} not found`);
+  }
+
+  // Delete photos from storage
+  if (artwork.photos && artwork.photos.length > 0) {
+    console.log("[ARTWORK] Deleting", artwork.photos.length, "photos from storage");
+    for (const photo of artwork.photos) {
+      if (photo.photoUrl) {
+        await deleteFile(photo.photoUrl);
+      }
+    }
+  }
+
   // Orphan all photos (set artworkId to null)
   await prisma.photo.updateMany({
     where: { artworkId: id },
@@ -115,10 +152,83 @@ export async function deleteArtwork(id: string) {
     where: { artworkId: id },
   });
 
+  // Decrement country counter
+  console.log("[ARTWORK] Decrementing country count for:", artwork.latitude, artwork.longitude);
+  const countryName = await extractCountryFromCoordinates(artwork.latitude, artwork.longitude);
+  if (countryName) {
+    const country = await prisma.country.findUnique({
+      where: { name: countryName },
+    });
+    if (country) {
+      await updateCountryCount(country.id, -1);
+    }
+  }
+
+  // Decrement artist counter if artist exists
+  if (artwork.artist?.artistName) {
+    console.log("[ARTWORK] Decrementing artist count:", artwork.artist.artistName);
+    const artist = await prisma.artist.findUnique({
+      where: { name: artwork.artist.artistName },
+    });
+    if (artist) {
+      await updateArtistCount(artist.id, -1);
+    }
+  }
+
+  // Decrement year counter if year provided
+  if (artwork.yearCreated) {
+    console.log("[ARTWORK] Decrementing year count:", artwork.yearCreated);
+    const artworkYear = await prisma.artworkYear.findUnique({
+      where: { year: artwork.yearCreated },
+    });
+    if (artworkYear) {
+      await updateYearCount(artworkYear.id, -1);
+    }
+  }
+
   // Finally delete the artwork itself
   return prisma.artwork.delete({
     where: { id },
   });
+}
+
+/**
+ * Delete a file from storage
+ */
+async function deleteFile(photoUrl: string) {
+  try {
+    if (!photoUrl) return;
+
+    // Extract filename from URL (handle both full URLs and relative paths)
+    const url = new URL(photoUrl, "http://localhost");
+    const pathname = url.pathname;
+
+    // Determine file path
+    let filePath: string;
+    if (pathname.includes("/uploads/")) {
+      // Extract the filename part
+      const filename = pathname.split("/uploads/")[1];
+      filePath = `public/uploads/${filename}`;
+    } else {
+      return; // Skip non-upload files
+    }
+
+    // Try to delete the file
+    const fs = await import("fs/promises");
+    try {
+      await fs.unlink(filePath);
+      console.log("[STORAGE] Deleted file:", filePath);
+    } catch (err: any) {
+      if (err.code === "ENOENT") {
+        console.log("[STORAGE] File not found (already deleted):", filePath);
+      } else {
+        console.error("[STORAGE] Error deleting file:", filePath, err);
+      }
+    }
+  } catch (error) {
+    console.error("[STORAGE] Error processing file deletion:", error);
+    // Don't throw - file cleanup failures shouldn't block artwork deletion
+  }
 }
 
 export async function claimArtwork(artworkId: string, artistId: string) {
@@ -136,18 +246,52 @@ export async function claimArtwork(artworkId: string, artistId: string) {
 export async function approveClaim(artworkId: string) {
   const prisma = await prismaClient();
 
-  return prisma.artwork.update({
+  // Get artwork details before updating
+  const artwork = await prisma.artwork.findUnique({
+    where: { id: artworkId },
+    include: { artist: true },
+  });
+
+  if (!artwork) {
+    throw new Error(`Artwork with ID ${artworkId} not found`);
+  }
+
+  const updated = await prisma.artwork.update({
     where: { id: artworkId },
     data: {
       claimStatus: "CLAIMED",
     },
   });
+
+  // Auto-create artist counter if artist exists
+  if (artwork.artist?.artistName) {
+    console.log("[ARTWORK] Ensuring artist exists:", artwork.artist.artistName);
+    await ensureArtistExists(artwork.artist.artistName);
+  }
+
+  // Auto-create year counter if year provided
+  if (artwork.yearCreated) {
+    console.log("[ARTWORK] Ensuring year exists:", artwork.yearCreated);
+    await ensureYearExists(artwork.yearCreated);
+  }
+
+  return updated;
 }
 
 export async function rejectClaim(artworkId: string) {
   const prisma = await prismaClient();
 
-  return prisma.artwork.update({
+  // Get artwork details before updating
+  const artwork = await prisma.artwork.findUnique({
+    where: { id: artworkId },
+    include: { artist: true },
+  });
+
+  if (!artwork) {
+    throw new Error(`Artwork with ID ${artworkId} not found`);
+  }
+
+  const updated = await prisma.artwork.update({
     where: { id: artworkId },
     data: {
       claimStatus: "UNCLAIMED",
@@ -155,6 +299,31 @@ export async function rejectClaim(artworkId: string) {
       rejectedAt: new Date(),
     },
   });
+
+  // Decrement artist counter if artist existed
+  if (artwork.artist?.artistName) {
+    console.log("[ARTWORK] Decrementing artist count:", artwork.artist.artistName);
+    // Find the artist record and decrement
+    const artist = await prisma.artist.findUnique({
+      where: { name: artwork.artist.artistName },
+    });
+    if (artist) {
+      await updateArtistCount(artist.id, -1);
+    }
+  }
+
+  // Decrement year counter if year provided
+  if (artwork.yearCreated) {
+    console.log("[ARTWORK] Decrementing year count:", artwork.yearCreated);
+    const artworkYear = await prisma.artworkYear.findUnique({
+      where: { year: artwork.yearCreated },
+    });
+    if (artworkYear) {
+      await updateYearCount(artworkYear.id, -1);
+    }
+  }
+
+  return updated;
 }
 
 export async function unclaimArtwork(artworkId: string, artistId: string) {

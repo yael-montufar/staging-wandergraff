@@ -1007,6 +1007,9 @@ User {
 | 1.9 | Session 5 | Finalized artist claim flow with PENDING_APPROVAL → CLAIMED workflow, claim button logic, metadata editing, proposed separate artist onboarding |
 | 2.0 | Session 6 | Simplified artist onboarding: removed approval requirement, added direct role assignment with contact info collection, updated admin dashboard to show artists directory |
 | 2.1 | Session 6 | Added claim visibility rules: only claim maker sees pending status, non-claimers see unclaimed. Added rate limiting (3 pending claims), cooldown (2 weeks after rejection), withdraw claim feature |
+| 2.2 | Session 8 | Implemented Phase 1 curation system: auto-create Country/Artist/Year records on artwork events, maintain denormalized counters, add file cleanup on deletion, wire handlers into artworks.server.ts |
+| 2.3 | Session 9 | **Artist Registration on Role Change**: Artists are now registered when a user's role is set to ARTIST. Counts are maintained via claims. Updated browse APIs to reflect this. |
+| 2.4 | Session 10 | **Implemented Artist Registration**: Added `ensureArtistExists()` call to "become-artist" and "update-artist-info" actions. Artists automatically register in browse system when role changes to ARTIST. |
 
 ---
 
@@ -1093,5 +1096,175 @@ User {
 
 ---
 
-**Last Updated:** Session 7
-**Next Review:** When implementing database integration for years/countries, or adding special character support
+## Artist Registration & Browse System
+
+### Decision: Auto-Register Artists on Role Change
+**Date:** Session 10
+**Status:** ✅ Implemented
+
+**Problem:**
+- Artists becoming a "creator" on the platform needed to be registered for the browse system
+- Previously, artists would only appear on browse pages after their first artwork claim was approved
+- This created inconsistency: artists existed in User table but not in Artist browse records
+- Browse endpoints needed a dedicated Artist table for efficient queries and count tracking
+
+**Solution:**
+- When a user changes their role to ARTIST (via "Become an Artist" flow), automatically register them in the browse system
+- The Artist record is created/updated via `ensureArtistExists(artistName)` in the "become-artist" action
+- When artist information (artist name) is updated, the new artist name is also registered
+- Subsequent claims/approvals increment the artist's artwork count
+- Counts accurately reflect approved claims, not just artist status
+
+**Implementation Details:**
+- **File:** `app/routes/user.profile.tsx`
+  - Imported `ensureArtistExists` from curation.server.ts
+  - "become-artist" action now calls `ensureArtistExists(artistName)` after updating user role
+  - "update-artist-info" action calls `ensureArtistExists(artistName)` if name changed
+
+- **Artist Counter Lifecycle:**
+  - **Initial registration:** Counter set to 0 when artist first becomes ARTIST role
+  - **Claim approved:** Counter incremented when artwork claim approved
+  - **Claim rejected:** Counter decremented when approved claim is rejected
+  - **Artwork deleted:** Counter decremented if artwork is deleted
+
+- **Artist Record Fields:**
+  ```
+  Artist {
+    id: String (unique identifier)
+    name: String (unique artist name from User.artistName)
+    artworkCount: Int (number of claimed, approved artworks)
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+
+**Data Flow:**
+1. User fills out "Become an Artist" form with `artistName` (and optional contact fields)
+2. User.role updated to ARTIST
+3. Artist record created/updated in browse system with count = 0
+4. User claims artwork → claim status becomes PENDING_APPROVAL (no count increment yet)
+5. Admin approves claim → claim status becomes CLAIMED, Artist.artworkCount incremented
+6. Artist can update their artist info → new names are registered in browse system
+7. If claim rejected → Artist.artworkCount decremented
+
+**Benefits:**
+- ✅ Artists appear in browse system immediately upon registration
+- ✅ Browse APIs have reliable count data (only approved claims)
+- ✅ Separation of concerns: role assignment vs. artwork contribution counting
+- ✅ Artists can update their name and it's automatically registered for discovery
+- ✅ Consistent with how Country and Year records are auto-created
+
+**Edge Cases Handled:**
+- Artist becomes artist but never submits a claim → appears with 0 artworks (acceptable)
+- Artist with pending claims not approved yet → count stays at 0
+- Artist changes name → old and new names both registered separately (allows multiple artist identities)
+- Multiple artists with same name → counted as single artist in browse system
+
+**Rationale:**
+Aligns with the simplified artist onboarding approach: users become artists immediately (no approval), but their artwork count only increases when claims are approved. This maintains data integrity while enabling discovery of all registered artists.
+
+---
+
+## Browse API Curation System
+
+### Decision: Auto-Create & Maintain Denormalized Counters for Browse Pages
+**Date:** Session 8
+**Status:** �� Implemented (Phase 1)
+
+**Problem:**
+- Browse pages need to list countries, artists, and years
+- This data is derived from artworks and claims
+- Need automatic, consistent updates as artworks are created/deleted and claims approved/rejected
+- Separate models from User (for artists who claim) to enable true counts and discovery
+
+**Solution: Denormalized Counter Models**
+
+Three new Prisma models track counts:
+```
+Country {
+  id, name (unique), code?, artworkCount (counter)
+}
+
+Artist {
+  id, name (unique), artworkCount (counter)
+}
+
+ArtworkYear {
+  id, year (unique), artworkCount (counter)
+}
+```
+
+**Auto-Creation Strategy:**
+1. **Country Creation** (in `createArtwork()`)
+   - Extract country name from coordinates via reverse geocode (Nominatim)
+   - Create Country record if not exists, increment counter
+   - Called automatically when user pins artwork
+
+2. **Artist Creation** (in `approveClaim()`)
+   - Extract artist name from user (`artist.artistName`)
+   - Create Artist record if not exists, increment counter
+   - Called automatically when admin approves claim
+
+3. **Year Creation** (in `approveClaim()`)
+   - Extract year from artwork (`artwork.yearCreated`)
+   - Create ArtworkYear record if not exists, increment counter
+   - Called automatically when admin approves claim (if year provided)
+
+**Counter Maintenance:**
+- **Increment:** On create/approve operations
+- **Decrement:** On delete/reject operations
+- Implemented in `lib/curation.server.ts` with error handling
+- Graceful failures: counter issues don't block operations
+
+**API Endpoints Wired:**
+- `GET /api/browse/countries` → queries Country records, sorted by count descending
+- `GET /api/browse/artists` → queries Artist records, grouped by first letter
+- `GET /api/browse/years` → queries ArtworkYear records, sorted by count descending
+
+**File Cleanup on Deletion:**
+- When artwork deleted, also delete associated photos from `/public/uploads/`
+- Extract filename from photoUrl, attempt filesystem deletion
+- Handle missing files gracefully (don't block deletion if file already gone)
+- Prevents unbounded storage growth in development
+
+**Implementation Details:**
+- File: `app/lib/artworks.server.ts`
+  - Import curation functions in `createArtwork()`, `approveClaim()`, `rejectClaim()`, `deleteArtwork()`
+  - Call handlers at appropriate lifecycle points
+- File: `app/lib/curation.server.ts`
+  - Already exists with all counter management functions
+  - `ensureCountryExists()`, `ensureArtistExists()`, `ensureYearExists()`
+  - `updateCountryCount()`, `updateArtistCount()`, `updateYearCount()`
+- Database: New Country, Artist, ArtworkYear tables created via migration
+
+**Benefits:**
+- ✅ Browse pages automatically populate as content is added
+- ✅ Counters stay accurate through all lifecycle operations
+- ✅ No manual syncing needed
+- ✅ Graceful error handling (failures don't cascade)
+- ✅ File cleanup prevents storage issues
+- ✅ Separates concerns: curation logic in dedicated server library
+
+**Data Consistency:**
+- Country counter: Incremented when artwork created, decremented when deleted
+- Artist counter: Incremented when claim approved, decremented when claim rejected or artwork deleted
+- Year counter: Incremented when claim approved with year, decremented when claim rejected or artwork deleted
+- Counters maintain accuracy across all crud operations
+
+**Edge Cases Handled:**
+- Artwork with no year: `ensureYearExists()` returns null, no year record created (acceptable)
+- Geocoding fails: `ensureCountryExists()` logs error and returns null (artwork still created)
+- Country/Artist/Year not found on delete: Queries find record, decrement if exists
+- File deletion fails: Logged but doesn't block artwork deletion
+- Multiple artworks same location: Each creates/increments country (correct behavior)
+
+**Performance Considerations:**
+- Counter increments are single UPDATE queries (efficient)
+- Denormalized counts avoid expensive COUNT aggregations on browse pages
+- Geocoding cached implicitly (Nominatim API results consistent for same coords)
+- Browse page queries: `findMany({ orderBy: [count, name] })` with indexes
+
+---
+
+**Last Updated:** Session 8 (Phase 1 Curation Implementation)
+**Next Review:** When implementing Phase 2 features (official galleries, notifications)

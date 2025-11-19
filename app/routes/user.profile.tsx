@@ -81,6 +81,7 @@ export const action: Route.ActionFunction = async ({ request }) => {
   const { updatePhoto, deletePhoto } = await import("~/lib/photos.server");
   const { deleteCollection } = await import("~/lib/collections.server");
   const { prismaClient } = await import("~/lib/db.server");
+  const { ensureArtistExists } = await import("~/lib/curation.server");
 
   const cookieHeader = request.headers.get("cookie");
   const token = getAuthTokenFromCookie(cookieHeader);
@@ -117,6 +118,11 @@ export const action: Route.ActionFunction = async ({ request }) => {
           },
         });
 
+        // Register the artist in the browse system when they become an artist
+        if (artistName) {
+          await ensureArtistExists(artistName);
+        }
+
         return { success: true, message: "You're now an artist!" };
       } catch (error) {
         return {
@@ -135,6 +141,13 @@ export const action: Route.ActionFunction = async ({ request }) => {
         const artistBio = formData.get("artistBio") as string;
 
         const prisma = await prismaClient();
+
+        // Get current artist name to check if it changed
+        const currentUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { artistName: true },
+        });
+
         await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -146,6 +159,11 @@ export const action: Route.ActionFunction = async ({ request }) => {
             artistBio: artistBio || null,
           },
         });
+
+        // Register the updated artist name in the browse system if changed
+        if (artistName && artistName !== currentUser?.artistName) {
+          await ensureArtistExists(artistName);
+        }
 
         return { success: true, message: "Artist information updated!" };
       } catch (error) {
