@@ -2,8 +2,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 
-// Artist names data grouped by letter (to be populated from database)
-const ARTISTS_BY_LETTER: Record<string, string[]> = {};
+interface Artist {
+  id: string;
+  name: string;
+  artworkCount: number;
+}
+
+interface ArtistsByLetter {
+  [letter: string]: Artist[];
+}
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -25,7 +32,7 @@ const colorSchemes = {
 
 interface ArtistGridProps {
   letter: string;
-  artists: string[];
+  artists: Artist[];
   scheme: typeof colorSchemes.light;
 }
 
@@ -53,8 +60,8 @@ function ArtistSection({ letter, artists, scheme }: ArtistGridProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {artists.map((artist) => (
             <a
-              key={artist}
-              href={`/artist/${slugifyArtistName(artist)}`}
+              key={artist.id}
+              href={`/artist/${artist.id}`}
               className="p-6 rounded transition-all duration-200 group"
               style={{
                 backgroundColor: scheme.secondaryBg,
@@ -73,7 +80,13 @@ function ArtistSection({ letter, artists, scheme }: ArtistGridProps) {
                 className="text-sm font-medium truncate"
                 style={{ color: scheme.text }}
               >
-                {artist}
+                {artist.name}
+              </div>
+              <div
+                className="text-xs mt-1 opacity-70"
+                style={{ color: scheme.text }}
+              >
+                {artist.artworkCount} artwork{artist.artworkCount !== 1 ? "s" : ""}
               </div>
             </a>
           ))}
@@ -90,9 +103,30 @@ function ArtistSection({ letter, artists, scheme }: ArtistGridProps) {
 export default function ArtistsIndexPage() {
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
+  const [artistsByLetter, setArtistsByLetter] = useState<ArtistsByLetter>({});
   const [displayedLetters, setDisplayedLetters] = useState<string[]>(["A", "B", "C"]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Fetch artists from API
+  useEffect(() => {
+    const fetchArtists = async () => {
+      try {
+        const response = await fetch("/api/browse/artists");
+        if (response.ok) {
+          const data = await response.json();
+          setArtistsByLetter(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artists:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchArtists();
+  }, []);
 
   // Detect theme preference
   useEffect(() => {
@@ -119,8 +153,8 @@ export default function ArtistsIndexPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoading && displayedLetters.length < ALPHABET.length) {
-          setIsLoading(true);
+        if (entries[0].isIntersecting && !isLoadingMore && displayedLetters.length < ALPHABET.length) {
+          setIsLoadingMore(true);
           // Simulate network delay
           setTimeout(() => {
             setDisplayedLetters((prev) => {
@@ -130,7 +164,7 @@ export default function ArtistsIndexPage() {
               }
               return prev;
             });
-            setIsLoading(false);
+            setIsLoadingMore(false);
           }, 300);
         }
       },
@@ -146,7 +180,7 @@ export default function ArtistsIndexPage() {
         observer.unobserve(observerTarget.current);
       }
     };
-  }, [isLoading, displayedLetters]);
+  }, [isLoadingMore, displayedLetters]);
 
   const scheme = colorSchemes[selectedScheme];
   const noiseColor = selectedScheme === "light" ? "E7E7E7" : "1A1A1A";
@@ -177,40 +211,56 @@ export default function ArtistsIndexPage() {
           </p>
         </div>
 
-        {/* Artists Grid by Letter */}
-        <div className="space-y-12">
-          {displayedLetters.map((letter) => (
-            <ArtistSection
-              key={letter}
-              letter={letter}
-              artists={ARTISTS_BY_LETTER[letter] || []}
-              scheme={scheme}
-            />
-          ))}
-        </div>
-
-        {/* Loading indicator for infinite scroll */}
-        {isLoading && (
-          <div className="flex justify-center py-8">
+        {/* Loading state */}
+        {isLoadingData ? (
+          <div className="flex justify-center py-12">
             <div
               className="animate-spin rounded-full h-8 w-8"
               style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
             />
           </div>
-        )}
+        ) : Object.keys(artistsByLetter).length > 0 ? (
+          <>
+            {/* Artists Grid by Letter */}
+            <div className="space-y-12">
+              {displayedLetters.map((letter) => (
+                <ArtistSection
+                  key={letter}
+                  letter={letter}
+                  artists={artistsByLetter[letter] || []}
+                  scheme={scheme}
+                />
+              ))}
+            </div>
 
-        {/* Infinite scroll sentinel */}
-        <div ref={observerTarget} className="py-8 text-center">
-          {displayedLetters.length >= ALPHABET.length ? (
-            <p style={{ color: scheme.text, opacity: 0.5 }}>
-              You've reached the end
-            </p>
-          ) : (
-            <p style={{ color: scheme.text, opacity: 0.5 }}>
-              Scroll to load more artists...
-            </p>
-          )}
-        </div>
+            {/* Loading indicator for infinite scroll */}
+            {isLoadingMore && (
+              <div className="flex justify-center py-8">
+                <div
+                  className="animate-spin rounded-full h-8 w-8"
+                  style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+                />
+              </div>
+            )}
+
+            {/* Infinite scroll sentinel */}
+            <div ref={observerTarget} className="py-8 text-center">
+              {displayedLetters.length >= ALPHABET.length ? (
+                <p style={{ color: scheme.text, opacity: 0.5 }}>
+                  You've reached the end
+                </p>
+              ) : (
+                <p style={{ color: scheme.text, opacity: 0.5 }}>
+                  Scroll to load more artists...
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <p style={{ color: scheme.text }}>No artists yet</p>
+          </div>
+        )}
       </main>
     </div>
   );

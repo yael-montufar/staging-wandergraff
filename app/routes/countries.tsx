@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 
-// Countries data (to be populated from database)
-const COUNTRIES: Array<{ id: string; name: string; artworksCount: number }> = [];
+interface Country {
+  id: string;
+  name: string;
+  artworkCount: number;
+}
 
 // Color schemes - match site theme
 const colorSchemes = {
@@ -26,7 +29,28 @@ const colorSchemes = {
 export default function CountriesPage() {
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
-  
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch countries from API
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch("/api/browse/countries");
+        if (response.ok) {
+          const data = await response.json();
+          setCountries(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch countries:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
+
   // Detect theme preference
   useEffect(() => {
     const stored = localStorage.getItem("wandergraff-theme");
@@ -50,7 +74,6 @@ export default function CountriesPage() {
 
   const scheme = colorSchemes[selectedScheme];
   const noiseColor = selectedScheme === "light" ? "E7E7E7" : "1A1A1A";
-  const sortedCountries = [...COUNTRIES].sort((a, b) => b.artworksCount - a.artworksCount);
 
   return (
     <div
@@ -63,7 +86,7 @@ export default function CountriesPage() {
       }}
     >
       <Header user={rootData?.user} />
-      
+
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Page Header */}
         <div className="mb-12">
@@ -74,14 +97,18 @@ export default function CountriesPage() {
             Discover by Country
           </h1>
           <p style={{ color: scheme.text }}>
-            {COUNTRIES.length > 0 ? `Explore ${COUNTRIES.length} countries with street art` : "No countries yet"}
+            {countries.length > 0 ? `Explore ${countries.length} countries with street art` : "No countries yet"}
           </p>
         </div>
 
         {/* Countries Grid */}
-        {sortedCountries.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p style={{ color: scheme.text }}>Loading...</p>
+          </div>
+        ) : countries.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedCountries.map((country) => (
+            {countries.map((country) => (
               <a
                 key={country.id}
                 href={`/countries/${country.id}`}
@@ -106,7 +133,7 @@ export default function CountriesPage() {
                   {country.name}
                 </h2>
                 <p style={{ color: scheme.text }} className="opacity-70">
-                  {country.artworksCount} artworks
+                  {country.artworkCount} artwork{country.artworkCount !== 1 ? "s" : ""}
                 </p>
               </a>
             ))}

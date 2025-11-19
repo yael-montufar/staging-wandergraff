@@ -56,6 +56,33 @@ export interface GeocodingResult {
   latitude: number;
   longitude: number;
   address: string;
+  country?: string;
+}
+
+export async function extractCountryFromCoordinates(
+  latitude: number,
+  longitude: number
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+      {
+        headers: {
+          "User-Agent": "wandergraff-app",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.address?.country || null;
+  } catch (error) {
+    console.error("[GEOCODING] Error extracting country:", error);
+    return null;
+  }
 }
 
 export async function forwardGeocode(address: string): Promise<GeocodingResult | null> {

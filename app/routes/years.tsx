@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 
-// Years data (to be populated from database)
-const YEARS: Array<{ year: number; artworksCount: number }> = [];
+interface ArtworkYear {
+  id: string;
+  year: number;
+  artworkCount: number;
+}
 
 // Color schemes - match site theme
 const colorSchemes = {
@@ -26,7 +29,28 @@ const colorSchemes = {
 export default function YearsPage() {
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
-  
+  const [years, setYears] = useState<ArtworkYear[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch years from API
+  useEffect(() => {
+    const fetchYears = async () => {
+      try {
+        const response = await fetch("/api/browse/years");
+        if (response.ok) {
+          const data = await response.json();
+          setYears(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch years:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchYears();
+  }, []);
+
   // Detect theme preference
   useEffect(() => {
     const stored = localStorage.getItem("wandergraff-theme");
@@ -73,16 +97,23 @@ export default function YearsPage() {
             Browse by Year
           </h1>
           <p style={{ color: scheme.text }}>
-            {YEARS.length > 0 ? `Explore ${YEARS.reduce((sum, y) => sum + y.artworksCount, 0)} street artworks added over time` : "No years yet"}
+            {years.length > 0 ? `Explore ${years.reduce((sum, y) => sum + y.artworkCount, 0)} street artworks added over time` : "No years yet"}
           </p>
         </div>
 
         {/* Years Grid */}
-        {YEARS.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div
+              className="animate-spin rounded-full h-8 w-8"
+              style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+            />
+          </div>
+        ) : years.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {YEARS.map((item) => (
+            {years.map((item) => (
               <a
-                key={item.year}
+                key={item.id}
                 href={`/years/${item.year}`}
                 className="group p-6 rounded text-center transition-all duration-200"
                 style={{
@@ -105,7 +136,7 @@ export default function YearsPage() {
                   {item.year}
                 </h2>
                 <p style={{ color: scheme.text }} className="opacity-70">
-                  {item.artworksCount} artworks
+                  {item.artworkCount} artwork{item.artworkCount !== 1 ? "s" : ""}
                 </p>
               </a>
             ))}

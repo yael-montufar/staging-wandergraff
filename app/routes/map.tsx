@@ -17,6 +17,37 @@ const colorSchemes = {
   },
 };
 
+// Default hotspots when database is empty or API fails
+const defaultHotspots = [
+  { lat: 40.7128, lon: -74.006, count: 0 },
+  { lat: 34.0522, lon: -118.2437, count: 0 },
+  { lat: 41.8781, lon: -87.6298, count: 0 },
+  { lat: 51.5074, lon: -0.1278, count: 0 },
+  { lat: 48.8566, lon: 2.3522, count: 0 },
+  { lat: 52.52, lon: 13.405, count: 0 },
+  { lat: 41.3851, lon: 2.1734, count: 0 },
+  { lat: 40.4168, lon: -3.7038, count: 0 },
+  { lat: 45.4642, lon: 9.19, count: 0 },
+  { lat: 43.7695, lon: 11.2558, count: 0 },
+  { lat: 35.6762, lon: 139.6503, count: 0 },
+  { lat: 31.2304, lon: 121.4737, count: 0 },
+  { lat: -33.8688, lon: 151.2093, count: 0 },
+  { lat: -23.5505, lon: -46.6333, count: 0 },
+  { lat: 37.9838, lon: 23.7275, count: 0 },
+  { lat: 48.1486, lon: 17.1077, count: 0 },
+  { lat: 59.3293, lon: 18.0686, count: 0 },
+  { lat: 55.7558, lon: 37.6173, count: 0 },
+  { lat: 1.3521, lon: 103.8198, count: 0 },
+  { lat: 13.7563, lon: 100.5018, count: 0 },
+  { lat: -37.8136, lon: 144.9631, count: 0 },
+  { lat: -33.9249, lon: 18.4241, count: 0 },
+  { lat: 40.7489, lon: -73.968, count: 0 },
+  { lat: 33.749, lon: -84.388, count: 0 },
+  { lat: 39.7392, lon: -104.9903, count: 0 },
+  { lat: 47.6062, lon: -122.3321, count: 0 },
+  { lat: 37.7749, lon: -122.4194, count: 0 },
+];
+
 interface Marker {
   lat: number;
   lng: number;
@@ -51,9 +82,32 @@ export default function MapPage() {
   const [selectedArtwork, setSelectedArtwork] = useState<ExistingArtwork | null>(null);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+  const [hotspots, setHotspots] = useState<Array<{ lat: number; lon: number; count: number }>>(
+    defaultHotspots
+  );
 
   const maxZoom = 19; // Maximum zoom level
   const userLocationMarker = useRef<any>(null);
+
+  // Fetch hotspots from database on mount
+  useEffect(() => {
+    const fetchHotspots = async () => {
+      try {
+        const response = await fetch("/api/map/hotspots");
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setHotspots(data);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch hotspots:", error);
+        // Fall back to default hotspots
+      }
+    };
+
+    fetchHotspots();
+  }, []);
 
   // Detect theme preference
   useEffect(() => {
@@ -340,17 +394,28 @@ export default function MapPage() {
     );
   };
 
+  // Get random location from hotspots with slight variance
+  const getRandomHotspotLocation = () => {
+    const hotspot = hotspots[Math.floor(Math.random() * hotspots.length)];
+    // Add random offset (±0.05 degrees ≈ 5.5km)
+    const latOffset = (Math.random() - 0.5) * 0.1;
+    const lonOffset = (Math.random() - 0.5) * 0.1;
+    return {
+      lat: hotspot.lat + latOffset,
+      lon: hotspot.lon + lonOffset,
+    };
+  };
+
   // Handle random location
   const handleRandomLocation = () => {
     if (!mapInstance.current || !leafletRef.current) return;
 
     const L = leafletRef.current;
 
-    // Generate random coordinates
-    const randomLat = Math.random() * 180 - 90; // -90 to 90
-    const randomLon = Math.random() * 360 - 180; // -180 to 180
+    // Get a random location from hotspots
+    const location = getRandomHotspotLocation();
 
-    mapInstance.current.setView([randomLat, randomLon], 15);
+    mapInstance.current.setView([location.lat, location.lon], 15);
 
     // Remove old marker
     if (userLocationMarker.current && mapInstance.current.hasLayer(userLocationMarker.current)) {
@@ -359,7 +424,7 @@ export default function MapPage() {
 
     // Add marker at random location
     const scheme = colorSchemes[selectedScheme];
-    const marker = L.circleMarker([randomLat, randomLon], {
+    const marker = L.circleMarker([location.lat, location.lon], {
       radius: 8,
       fillColor: scheme.accent,
       color: scheme.text,

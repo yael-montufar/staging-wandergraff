@@ -51,6 +51,49 @@ enum UserRole {
 }
 
 // ============================================================================
+// COUNTRIES
+// ============================================================================
+model Country {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  code          String?  // ISO country code (optional)
+  artworkCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([artworkCount])
+}
+
+// ============================================================================
+// ARTISTS
+// ============================================================================
+model Artist {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  artworkCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([artworkCount])
+}
+
+// ============================================================================
+// YEARS
+// ============================================================================
+model ArtworkYear {
+  id            String   @id @default(cuid())
+  year          Int      @unique
+  artworkCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([year])
+  @@index([artworkCount])
+}
+
+// ============================================================================
 // ARTWORKS
 // ============================================================================
 model Artwork {
