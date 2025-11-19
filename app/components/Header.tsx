@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import SearchModal from "./SearchModal";
+import placeholderImg from "../assets/wandergraff-placeholder.jpg?url";
 
 // Color schemes - Urban palette
 const colorSchemes = {
@@ -46,9 +47,11 @@ export function Header({ user }: HeaderProps) {
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
   const [selectedFont] = useState(0);
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const scheme = colorSchemes[selectedScheme];
   const logoFont = logoFonts[selectedFont];
@@ -100,6 +103,27 @@ export function Header({ user }: HeaderProps) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close mobile menu when clicking outside and prevent scrolling when open
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    }
+
+    if (isMobileMenuOpen) {
+      // Prevent body scroll
+      document.body.style.overflow = "hidden";
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.body.style.overflow = "unset";
+      };
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [isMobileMenuOpen]);
 
   return (
     <header
@@ -346,11 +370,13 @@ export function Header({ user }: HeaderProps) {
 
                 {/* Mobile Menu Toggle */}
                 <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                   style={{
                     backgroundColor: scheme.primaryBg,
                     color: scheme.text,
                   }}
                   className="lg:hidden px-4 py-3 flex items-center justify-center h-12"
+                  title="Toggle menu"
                 >
                   <div className="space-y-1.5">
                     <div style={{ backgroundColor: scheme.text }} className="w-6 h-1"></div>
@@ -416,26 +442,6 @@ export function Header({ user }: HeaderProps) {
               >
                 Years
               </a>
-              <a
-                href="/collections"
-                style={{
-                  backgroundColor: scheme.accent,
-                  color: "#FFFFFF",
-                }}
-                className="px-6 py-3 font-bold uppercase text-base hover:opacity-80 transition flex-1 text-center"
-              >
-                Collections
-              </a>
-              <a
-                href="/about"
-                style={{
-                  backgroundColor: scheme.accent,
-                  color: "#FFFFFF",
-                }}
-                className="px-6 py-3 font-bold uppercase text-base hover:opacity-80 transition flex-1 text-center"
-              >
-                About
-              </a>
             </div>
           </div>
         </div>
@@ -447,6 +453,80 @@ export function Header({ user }: HeaderProps) {
         onClose={() => setIsSearchOpen(false)}
         scheme={scheme}
       />
+
+      {/* Mobile Menu - Fullscreen */}
+      {isMobileMenuOpen && (
+        <div
+          ref={mobileMenuRef}
+          className="fixed inset-0 lg:hidden z-40 flex flex-col"
+          style={{
+            backgroundImage: `url(${placeholderImg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed",
+          }}
+          suppressHydrationWarning
+        >
+          {/* Gradient overlay for text contrast - much darker */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.85) 100%)",
+            }}
+          ></div>
+
+          {/* Menu Content */}
+          <div className="relative flex flex-col items-center justify-center flex-1 gap-8 p-8 text-center">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center text-white hover:text-orange-500 focus:text-orange-500 transition"
+              title="Close menu"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Navigation Links */}
+            <a
+              href="/"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-5xl font-bold uppercase text-white hover:text-orange-500 focus:text-orange-500 transition"
+            >
+              Home
+            </a>
+            <a
+              href="/artists"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-5xl font-bold uppercase text-white hover:text-orange-500 focus:text-orange-500 transition"
+            >
+              Artists
+            </a>
+            <a
+              href="/countries"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-5xl font-bold uppercase text-white hover:text-orange-500 focus:text-orange-500 transition"
+            >
+              Countries
+            </a>
+            <a
+              href="/map"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-5xl font-bold uppercase text-white hover:text-orange-500 focus:text-orange-500 transition"
+            >
+              Map
+            </a>
+            <a
+              href="/years"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-5xl font-bold uppercase text-white hover:text-orange-500 focus:text-orange-500 transition"
+            >
+              Years
+            </a>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
