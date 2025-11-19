@@ -10,6 +10,7 @@ export default [
   route("api/artwork/upload", "routes/api.artwork.upload.tsx"),
   route("api/user/upload-avatar", "routes/api.user.upload-avatar.tsx"),
   route("api/artworks/search", "routes/api.artworks.search.tsx"),
+  route("api/artworks/check-location", "routes/api.artworks.check-location.tsx"),
   route("api/admin/delete-artwork", "routes/api.admin.delete-artwork.tsx"),
   route("api/artwork/add-to-wall", "routes/api.artwork.add-to-wall.tsx"),
   route("api/user/walls", "routes/api.user.walls.tsx"),
