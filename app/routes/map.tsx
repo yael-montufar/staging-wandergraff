@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouteLoaderData } from "react-router";
 import MapDrawer from "~/components/MapDrawer";
+import MapFloatingMenu from "~/components/MapFloatingMenu";
 
 const colorSchemes = {
   light: {
@@ -62,6 +63,8 @@ interface ExistingArtwork {
   artistId?: string;
   artistName?: string;
   photos?: Array<{ photoUrl: string }>;
+  latitude?: number;
+  longitude?: number;
 }
 
 export default function MapPage() {
@@ -85,6 +88,10 @@ export default function MapPage() {
   const [hotspots, setHotspots] = useState<Array<{ lat: number; lon: number; count: number }>>(
     defaultHotspots
   );
+  const [allArtworks, setAllArtworks] = useState<ExistingArtwork[]>([]);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchPinsRef = useRef<(bounds?: any) => Promise<void>>();
 
   const maxZoom = 19; // Maximum zoom level
   const userLocationMarker = useRef<any>(null);
@@ -108,6 +115,227 @@ export default function MapPage() {
 
     fetchHotspots();
   }, []);
+
+  // Fetch and render artwork pins with clustering
+  useEffect(() => {
+    console.log("[MAP] Fetch pins effect running. isMapReady:", isMapReady, "Map ready:", !!mapInstance.current, "Leaflet ready:", !!leafletRef.current);
+
+    if (!isMapReady || !mapInstance.current || !leafletRef.current) {
+      console.log("[MAP] Map or Leaflet not ready, skipping fetch");
+      return;
+    }
+
+    const fetchPins = async (bounds?: any, zoomLevel?: number) => {
+      console.log("[MAP FETCH] ====== FETCH PINS CALLED ======");
+      console.log("[MAP FETCH] Bounds provided?", !!bounds);
+      console.log("[MAP FETCH] Zoom level passed:", zoomLevel);
+      console.log("[MAP FETCH] Current state zoom:", currentZoom);
+      setIsRefreshing(true);
+      try {
+        let url = "/api/map/pins";
+
+        // Add viewport bounds to query if provided
+        if (bounds) {
+          const params = new URLSearchParams({
+            minLat: bounds.minLat.toString(),
+            maxLat: bounds.maxLat.toString(),
+            minLng: bounds.minLng.toString(),
+            maxLng: bounds.maxLng.toString(),
+            zoom: (zoomLevel ?? currentZoom).toString(),
+          });
+          url = `/api/map/pins?${params.toString()}`;
+          console.log("[MAP FETCH] URL with viewport:", url);
+        } else {
+          console.log("[MAP FETCH] URL (all artworks):", url);
+        }
+
+        const response = await fetch(url);
+        console.log("[MAP FETCH] Response status:", response.status);
+
+        if (!response.ok) {
+          console.error("[MAP FETCH] Failed to fetch pins:", response.status);
+          setIsRefreshing(false);
+          return;
+        }
+
+        const pins = await response.json();
+        console.log("[MAP FETCH] Pins received:", pins.length, "artworks");
+        console.log("[MAP FETCH] Full response:", pins);
+
+        if (!Array.isArray(pins)) {
+          console.error("[MAP FETCH] Invalid pins response, expected array:", pins);
+          setIsRefreshing(false);
+          return;
+        }
+
+        // Store artworks for drawer display
+        setAllArtworks(pins);
+        setIsRefreshing(false);
+
+        const L = leafletRef.current;
+        const map = mapInstance.current;
+
+        // Check if markerClusterGroup is available
+        if (typeof (L as any).markerClusterGroup !== "function") {
+          console.warn("Marker cluster plugin not available, adding markers without clustering");
+          // Fallback: add markers without clustering
+          pins.forEach((pin) => {
+            const marker = L.marker([pin.latitude, pin.longitude]);
+            marker.bindPopup(`<h3>${pin.title}</h3><p>${pin.address || "No address"}</p><a href="/artwork/${pin.id}">View</a>`);
+            marker.addTo(map);
+          });
+          return;
+        }
+
+        // Custom cluster icon styling based on current theme
+        const createClusterIcon = (cluster: any) => {
+          const scheme = colorSchemes[selectedScheme];
+          const childCount = cluster.getChildCount();
+          let clusterClass = "";
+
+          if (childCount < 10) {
+            clusterClass = "marker-cluster-small";
+          } else if (childCount < 100) {
+            clusterClass = "marker-cluster-medium";
+          } else {
+            clusterClass = "marker-cluster-large";
+          }
+
+          return L.divIcon({
+            html: `
+              <div style="
+                background-color: ${scheme.accent};
+                border: 2px solid ${scheme.text};
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                color: ${scheme.primaryBg};
+                cursor: pointer;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+              ">
+                ${childCount}
+              </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20],
+            className: clusterClass,
+          });
+        };
+
+        // Create marker cluster group with customized styling
+        const markerClusterGroup = L.markerClusterGroup({
+          maxClusterRadius: 60,
+          zoomToBoundsOnClick: true,
+          showCoverageOnHover: false,
+          iconCreateFunction: createClusterIcon,
+        });
+
+        // Create a custom icon class for artwork pins
+        const createMarkerIcon = (claimStatus: string) => {
+          const scheme = colorSchemes[selectedScheme];
+          let color = scheme.accent;
+
+          if (claimStatus === "CLAIMED") {
+            color = scheme.accent;
+          } else if (claimStatus === "PENDING_APPROVAL") {
+            color = "#FFA500"; // Orange for pending
+          } else {
+            color = "#999999"; // Gray for unclaimed
+          }
+
+          return L.divIcon({
+            html: `
+              <div style="
+                background-color: ${color};
+                border: 2px solid ${scheme.text};
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              ">
+                📍
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16],
+            className: "artwork-marker",
+          });
+        };
+
+        // Add markers to cluster group
+        pins.forEach((pin) => {
+          const marker = L.marker([pin.latitude, pin.longitude], {
+            icon: createMarkerIcon(pin.claimStatus),
+          });
+
+          // Create popup content
+          const popupContent = `
+            <div style="max-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">${pin.title}</h3>
+              ${pin.address ? `<p style="margin: 0 0 6px 0; font-size: 12px; color: #666;">${pin.address}</p>` : ""}
+              ${pin.artistName ? `<p style="margin: 0 0 6px 0; font-size: 12px;">By ${pin.artistName}</p>` : ""}
+              <p style="margin: 0; font-size: 11px; color: #999;">
+                ${pin.claimStatus === "CLAIMED" ? "✓ Claimed" : pin.claimStatus === "PENDING_APPROVAL" ? "⏳ Pending" : "��� Unclaimed"}
+              </p>
+              <a href="/artwork/${pin.id}" style="display: block; margin-top: 8px; color: ${scheme.accent}; text-decoration: none; font-size: 12px; font-weight: bold;">
+                View →
+              </a>
+            </div>
+          `;
+
+          marker.bindPopup(popupContent);
+
+          // Add click handler to open artwork detail
+          marker.on("click", () => {
+            fetch("/api/artworks/check-location", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ latitude: pin.latitude, longitude: pin.longitude }),
+            })
+              .then((res) => res.json())
+              .then((result) => {
+                if (result.found && result.artwork) {
+                  setSelectedArtwork(result.artwork);
+                  setSelectedMarker(null);
+                }
+              })
+              .catch((error) => console.error("Error fetching artwork:", error));
+          });
+
+          markerClusterGroup.addLayer(marker);
+        });
+
+        // Add cluster group to map
+        map.addLayer(markerClusterGroup);
+
+        // Store reference for cleanup
+        artworkMarkers.current = markerClusterGroup;
+      } catch (error) {
+        console.error("Error fetching map pins:", error);
+        setIsRefreshing(false);
+      }
+    };
+
+    // Store fetchPins function for use in refresh handler
+    fetchPinsRef.current = fetchPins;
+
+    // Initial fetch with all pins (pass the map's current zoom level)
+    const initialZoom = mapInstance.current.getZoom();
+    console.log("[MAP INIT] Initial fetch with zoom:", initialZoom);
+    fetchPins(undefined, initialZoom);
+  }, [isMapReady]);
 
   // Detect theme preference
   useEffect(() => {
@@ -145,6 +373,11 @@ export default function MapPage() {
 
         // Import Leaflet CSS
         await import("leaflet/dist/leaflet.css");
+
+        // Import Leaflet marker cluster CSS and library
+        await import("leaflet.markercluster/dist/MarkerCluster.css");
+        await import("leaflet.markercluster/dist/MarkerCluster.Default.css");
+        await import("leaflet.markercluster");
 
         // Store Leaflet reference for use in other functions
         leafletRef.current = L;
@@ -187,6 +420,7 @@ export default function MapPage() {
         });
 
         mapInstance.current = map;
+        setIsMapReady(true);
       } catch (error) {
         console.error("Failed to initialize map:", error);
         initializingRef.current = false;
@@ -196,6 +430,10 @@ export default function MapPage() {
     return () => {
       // Cleanup on unmount
       if (mapInstance.current) {
+        // Remove marker cluster group if it exists
+        if (artworkMarkers.current && mapInstance.current.hasLayer(artworkMarkers.current)) {
+          mapInstance.current.removeLayer(artworkMarkers.current);
+        }
         mapInstance.current.remove();
         mapInstance.current = null;
         initializingRef.current = false;
@@ -440,6 +678,49 @@ export default function MapPage() {
     window.location.href = "/";
   };
 
+  const handleArtworkClick = (artwork: ExistingArtwork) => {
+    if (!mapInstance.current) return;
+
+    // Focus map on the artwork location
+    mapInstance.current.setView([artwork.latitude, artwork.longitude], 15);
+
+    // Set as selected artwork to show in drawer
+    setSelectedArtwork(artwork);
+    setSelectedMarker(null);
+  };
+
+  const handleBackToList = () => {
+    // Clear detailed view and return to artworks list
+    setSelectedMarker(null);
+    setSelectedArtwork(null);
+  };
+
+  const handleRefreshArtworks = () => {
+    if (!mapInstance.current || !fetchPinsRef.current) return;
+
+    const bounds = mapInstance.current.getBounds();
+    const currentZoomLevel = mapInstance.current.getZoom();
+
+    console.log("[MAP REFRESH] ====== REFRESH CLICKED ======");
+    console.log("[MAP REFRESH] Current zoom level:", currentZoomLevel);
+
+    if (bounds) {
+      const { _northEast, _southWest } = bounds;
+      const viewportBounds = {
+        minLat: _southWest.lat,
+        maxLat: _northEast.lat,
+        minLng: _southWest.lng,
+        maxLng: _northEast.lng,
+      };
+      console.log("[MAP REFRESH] Viewport bounds:", viewportBounds);
+      console.log("[MAP REFRESH] Sending viewport-filtered request with zoom:", currentZoomLevel);
+      fetchPinsRef.current(viewportBounds, currentZoomLevel);
+    } else {
+      console.log("[MAP REFRESH] No bounds available, fetching all artworks");
+      fetchPinsRef.current(undefined, currentZoomLevel);
+    }
+  };
+
   const scheme = colorSchemes[selectedScheme];
 
   return (
@@ -452,6 +733,12 @@ export default function MapPage() {
         user={rootData?.user}
         onGoHome={handleGoHome}
         isLoadingAddress={isLoadingAddress || isCheckingLocation}
+        artworks={allArtworks}
+        onArtworkClick={handleArtworkClick}
+        isDarkMode={selectedScheme === "dark"}
+        onRefresh={handleRefreshArtworks}
+        isRefreshing={isRefreshing}
+        onBackToList={handleBackToList}
       />
 
       {/* Map Container */}
@@ -487,56 +774,16 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Zoom Indicator */}
-      {currentZoom < maxZoom && (
-        <div
-          className="absolute top-6 left-1/2 transform -translate-x-1/2 rounded-lg shadow-lg px-4 py-2 text-center text-sm"
-          style={{
-            backgroundColor: scheme.secondaryBg,
-            color: scheme.text,
-            zIndex: 100,
-          }}
-        >
-          Zoom in all the way to drop a pin
-        </div>
-      )}
-
-      {/* Bottom Right Control Buttons */}
-      <div className="absolute bottom-6 right-6 flex gap-2 z-100">
-        {/* Random Location Button */}
-        <button
-          onClick={handleRandomLocation}
-          className="w-14 h-14 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center text-xl font-bold hover:scale-110"
-          style={{
-            backgroundColor: scheme.secondaryBg,
-            color: scheme.text,
-            border: `2px solid ${scheme.text}`,
-            cursor: "pointer",
-            zIndex: 100,
-          }}
-          title="Zoom to a random location"
-        >
-          🎲
-        </button>
-
-        {/* Location Button */}
-        <button
-          onClick={handleLocationClick}
-          disabled={isLocating}
-          className="w-14 h-14 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center text-xl font-bold"
-          style={{
-            backgroundColor: locationPermissionGranted ? scheme.accent : scheme.secondaryBg,
-            color: locationPermissionGranted ? "#fff" : scheme.text,
-            border: `2px solid ${locationPermissionGranted ? scheme.accent : scheme.text}`,
-            cursor: isLocating ? "wait" : "pointer",
-            opacity: isLocating ? 0.7 : 1,
-            zIndex: 100,
-          }}
-          title="Request location access or recenter on your location"
-        >
-          {isLocating ? "..." : "🎯"}
-        </button>
-      </div>
+      {/* Floating Menu */}
+      <MapFloatingMenu
+        scheme={scheme}
+        currentZoom={currentZoom}
+        maxZoom={maxZoom}
+        onRandomLocation={handleRandomLocation}
+        onLocationClick={handleLocationClick}
+        isLocating={isLocating}
+        locationPermissionGranted={locationPermissionGranted}
+      />
     </div>
   );
 }

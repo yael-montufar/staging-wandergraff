@@ -15,6 +15,7 @@ export default [
   route("api/artwork/add-to-wall", "routes/api.artwork.add-to-wall.tsx"),
   route("api/user/walls", "routes/api.user.walls.tsx"),
   route("api/map/hotspots", "routes/api.map.hotspots.tsx"),
+  route("api/map/pins", "routes/api.map.pins.tsx"),
   route("api/browse/countries", "routes/api.browse.countries.tsx"),
   route("api/browse/artists", "routes/api.browse.artists.tsx"),
   route("api/browse/years", "routes/api.browse.years.tsx"),

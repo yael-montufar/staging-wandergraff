@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, memo } from "react";
+import logoBlack from "../assets/wandergraff-logo-black.png?url";
+import logoWhite from "../assets/wandergraff-logo-white.png?url";
 
 interface MapMarker {
   lat: number;
@@ -29,18 +31,31 @@ interface MapDrawerProps {
   user?: any;
   onGoHome?: () => void;
   isLoadingAddress?: boolean;
+  artworks?: ExistingArtwork[];
+  onArtworkClick?: (artwork: ExistingArtwork) => void;
+  isDarkMode?: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  onBackToList?: () => void;
 }
 
-export default function MapDrawer({
+function MapDrawerContent({
   scheme,
   marker,
   existingArtwork,
   user,
   onGoHome,
   isLoadingAddress,
+  artworks = [],
+  onArtworkClick,
+  isDarkMode = false,
+  onRefresh,
+  isRefreshing = false,
+  onBackToList,
 }: MapDrawerProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasContent = !!marker || !!existingArtwork;
+  const isShowingDetail = !!marker || !!existingArtwork;
 
   return (
     <div
@@ -82,31 +97,83 @@ export default function MapDrawer({
           className="w-full h-full flex flex-col border-r"
           style={{ borderColor: scheme.accent + "40" }}
         >
-          {/* Header */}
-          <div className="border-b px-4 py-4 flex items-center justify-between" style={{ borderColor: scheme.accent + "40" }}>
-            <h2 className="text-lg font-bold" style={{ color: scheme.text }}>
-              {existingArtwork ? "📍 Artwork" : "📍 Marker"}
-            </h2>
-            
-            {/* Collapse Button (aligned within header) */}
+          {/* Header with Logo and Controls */}
+          <div className="border-b flex items-stretch" style={{ borderColor: scheme.accent + "40" }}>
+            {/* Logo - Full height, square aspect ratio, clickable to go home */}
             <button
-              onClick={() => setIsExpanded(false)}
-              className="rounded-lg shadow-lg hover:scale-110 transition-all duration-300 flex items-center justify-center flex-shrink-0"
+              onClick={() => onGoHome?.()}
               style={{
-                width: "40px",
-                height: "40px",
-                backgroundColor: scheme.accent,
-                color: "#fff",
+                width: "64px",
+                height: "64px",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+                transition: "opacity 0.2s",
               }}
-              title="Collapse drawer"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "0.7";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "1";
+              }}
+              title="Go back to home"
             >
-              {/* Collapse icon: panel with arrow left */}
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="9" y1="3" x2="9" y2="21" />
-                <polyline points="15,9 12,12 15,15" />
-              </svg>
+              <img
+                src={isDarkMode ? logoWhite : logoBlack}
+                alt="Wandergraff"
+                className="w-full h-full object-contain"
+              />
             </button>
+
+            {/* Spacer to push control button to right */}
+            <div style={{ flex: 1 }} />
+
+            {/* Control Button Container */}
+            <div className="px-4 py-4 flex items-center justify-center gap-2">
+              {/* Back to List Button (shown only when viewing detail) */}
+              {isShowingDetail && onBackToList && (
+                <button
+                  onClick={onBackToList}
+                  className="rounded-lg shadow-lg hover:scale-110 transition-all duration-300 flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    backgroundColor: scheme.accent,
+                    color: "#fff",
+                  }}
+                  title="Back to artworks in view"
+                >
+                  {/* Back arrow icon */}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Collapse Button (always shown) */}
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="rounded-lg shadow-lg hover:scale-110 transition-all duration-300 flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: scheme.accent,
+                  color: "#fff",
+                }}
+                title="Collapse drawer"
+              >
+                {/* Collapse icon: panel with arrow left */}
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <line x1="9" y1="3" x2="9" y2="21" />
+                  <polyline points="15,9 12,12 15,15" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -302,6 +369,71 @@ export default function MapDrawer({
                   </>
                 )}
               </div>
+            ) : artworks.length > 0 ? (
+              /* Artwork List */
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold" style={{ color: scheme.text }}>
+                    Artworks in view ({artworks.length})
+                  </h3>
+                  {onRefresh && (
+                    <button
+                      onClick={onRefresh}
+                      disabled={isRefreshing}
+                      className="w-10 h-10 rounded-full shadow-lg hover:scale-110 transition-all duration-300 flex items-center justify-center flex-shrink-0 text-lg font-bold"
+                      style={{
+                        backgroundColor: "#FF8C00",
+                        color: "#fff",
+                        cursor: isRefreshing ? "wait" : "pointer",
+                        opacity: isRefreshing ? 0.7 : 1,
+                      }}
+                      title="Refresh artworks for current viewport"
+                    >
+                      {isRefreshing ? "..." : "🔄"}
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {artworks.map((artwork) => (
+                    <button
+                      key={artwork.id}
+                      onClick={() => onArtworkClick?.(artwork)}
+                      className="w-full text-left p-3 rounded-lg transition-all hover:shadow-md"
+                      style={{
+                        backgroundColor: scheme.secondaryBg,
+                        borderLeft: `3px solid ${
+                          artwork.claimStatus === "CLAIMED"
+                            ? scheme.accent
+                            : artwork.claimStatus === "PENDING_APPROVAL"
+                            ? "#FFA500"
+                            : "#999999"
+                        }`,
+                      }}
+                    >
+                      {artwork.photos?.[0]?.photoUrl && (
+                        <img
+                          src={artwork.photos[0].photoUrl}
+                          alt={artwork.title}
+                          className="w-full h-24 object-cover rounded mb-2"
+                        />
+                      )}
+                      <p className="text-sm font-medium" style={{ color: scheme.text }}>
+                        {artwork.title}
+                      </p>
+                      {artwork.address && (
+                        <p className="text-xs opacity-75 mt-1" style={{ color: scheme.text }}>
+                          📍 {artwork.address}
+                        </p>
+                      )}
+                      {artwork.artistName && (
+                        <p className="text-xs opacity-75 mt-1" style={{ color: scheme.text }}>
+                          ✏️ {artwork.artistName}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
               /* Default/Empty State */
               <div className="text-center pt-8">
@@ -318,24 +450,6 @@ export default function MapDrawer({
             )}
           </div>
 
-          {/* Footer */}
-          <div
-            className="border-t px-4 py-3"
-            style={{ borderColor: scheme.accent + "40" }}
-          >
-            {onGoHome && (
-              <button
-                onClick={onGoHome}
-                className="w-full py-2 px-4 rounded-lg font-medium transition-all text-center"
-                style={{
-                  backgroundColor: scheme.secondaryBg,
-                  color: scheme.text,
-                }}
-              >
-                ← Back Home
-              </button>
-            )}
-          </div>
         </div>
       )}
 
@@ -359,3 +473,5 @@ export default function MapDrawer({
     </div>
   );
 }
+
+export default memo(MapDrawerContent);
