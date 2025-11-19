@@ -13,3 +13,5 @@
 # Environment files
 .env.local
 .env.*.local
+
+/public/uploads/
