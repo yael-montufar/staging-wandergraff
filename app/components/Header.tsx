@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import SearchModal from "./SearchModal";
 
 // Color schemes - Urban palette
 const colorSchemes = {
@@ -46,6 +47,7 @@ export function Header({ user }: HeaderProps) {
   const [selectedFont] = useState(0);
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const scheme = colorSchemes[selectedScheme];
@@ -61,6 +63,19 @@ export function Header({ user }: HeaderProps) {
       setSelectedScheme(prefersDark ? "dark" : "light");
     }
     setIsMounted(true);
+  }, []);
+
+  // Keyboard shortcut for search (Cmd+K or Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleThemeChange = (newTheme: keyof typeof colorSchemes) => {
@@ -146,14 +161,19 @@ export function Header({ user }: HeaderProps) {
               <div className="flex flex-grow min-w-[280px] basis-[400px]">
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder="Search (Ctrl+K)"
+                  onClick={() => setIsSearchOpen(true)}
+                  readOnly
                   style={{
                     backgroundColor: scheme.primaryBg,
                     color: scheme.text,
+                    cursor: "pointer",
                   }}
                   className="flex-1 px-6 py-3 placeholder-opacity-60 focus:outline-none h-12"
+                  title={typeof window !== "undefined" && navigator.platform.indexOf("Mac") > -1 ? "Search (⌘+K)" : "Search (Ctrl+K)"}
                 />
                 <button
+                  onClick={() => setIsSearchOpen(true)}
                   style={{
                     backgroundColor: scheme.accent,
                     color: "#FFFFFF",
@@ -420,6 +440,13 @@ export function Header({ user }: HeaderProps) {
           </div>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        scheme={scheme}
+      />
     </header>
   );
 }

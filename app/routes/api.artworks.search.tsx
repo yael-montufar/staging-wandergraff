@@ -45,13 +45,32 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
 
     const prisma = await prismaClient();
 
-    // Fetch all artworks (we'll do fuzzy filtering in JS for better control)
+    // Fetch all artworks with related data
     const allArtworks = await prisma.artwork.findMany({
       select: {
         id: true,
         title: true,
         description: true,
+        address: true,
+        yearCreated: true,
         claimStatus: true,
+        artist: {
+          select: {
+            artistName: true,
+          },
+        },
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+        photos: {
+          where: { isPrivate: false },
+          take: 1,
+          select: {
+            photoUrl: true,
+          },
+        },
       },
       take: 100, // Reasonable limit to avoid fetching too much
     });
@@ -59,24 +78,33 @@ export const loader: Route.LoaderFunction = async ({ request }) => {
     // Perform fuzzy matching and scoring
     const scoredArtworks = allArtworks
       .map((artwork) => {
-        // Score both title and description
+        const searchableText = [
+          artwork.title,
+          artwork.description || "",
+          artwork.address || "",
+          artwork.yearCreated?.toString() || "",
+          artwork.artist?.artistName || artwork.createdBy?.name || "",
+        ].join(" ");
+
+        // Score the combined searchable text
+        const score = fuzzyMatch(query, searchableText);
+
+        // Also boost if title matches exactly
         const titleScore = fuzzyMatch(query, artwork.title);
-        const descriptionScore = fuzzyMatch(
-          query,
-          artwork.description || ""
-        );
 
-        // Use the higher score, but boost title matches
-        const score =
-          Math.max(titleScore, descriptionScore) +
-          (titleScore > descriptionScore ? 10 : 0);
-
-        return { ...artwork, score };
+        return {
+          ...artwork,
+          score: titleScore > 0 ? score + 20 : score,
+        };
       })
       .filter((artwork) => artwork.score > 0) // Only include matches
       .sort((a, b) => b.score - a.score) // Sort by relevance
       .slice(0, 20) // Return top 20 results
-      .map(({ score, ...artwork }) => artwork); // Remove score from result
+      .map(({ score, ...artwork }) => ({
+        ...artwork,
+        artistName: artwork.artist?.artistName || artwork.createdBy?.name,
+        photoUrl: artwork.photos[0]?.photoUrl,
+      })); // Map to cleaner structure
 
     return new Response(JSON.stringify({ artworks: scoredArtworks }), {
       status: 200,
