@@ -9,6 +9,8 @@ import {
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
+import { useAuthSync } from "./lib/useAuthSync";
+import { useAuthStateValidation } from "./lib/useAuthStateValidation";
 
 export const loader: Route.LoaderFunction = async ({ request }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("./lib/auth.server");
@@ -85,6 +87,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useAuthSync();
+  useAuthStateValidation();
   return <Outlet />;
 }
 

@@ -13,7 +13,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   if (error) {
     console.error("[CALLBACK] Auth error:", error, errorDescription);
-    return redirect(`/auth/login?error=${encodeURIComponent(errorDescription || error)}`);
+    return redirect(`/auth/login?error=${encodeURIComponent(errorDescription || error)}`, { replace: true });
   }
 
   if (code) {
@@ -23,7 +23,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
       if (!supabaseUrl || !supabaseAnonKey) {
         console.error("[CALLBACK] Missing Supabase environment variables");
-        return redirect("/auth/login?error=Server+configuration+error");
+        return redirect("/auth/login?error=Server+configuration+error", { replace: true });
       }
 
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -33,12 +33,12 @@ export const loader: LoaderFunction = async ({ request }) => {
 
       if (error) {
         console.error("[CALLBACK] Error exchanging code:", error);
-        return redirect(`/auth/login?error=${encodeURIComponent(error.message)}`);
+        return redirect(`/auth/login?error=${encodeURIComponent(error.message)}`, { replace: true });
       }
 
       if (!data.session) {
         console.error("[CALLBACK] No session returned");
-        return redirect("/auth/login?error=No+session+returned");
+        return redirect("/auth/login?error=No+session+returned", { replace: true });
       }
 
       console.log("[CALLBACK] Session established");
@@ -86,7 +86,7 @@ export const loader: LoaderFunction = async ({ request }) => {
         // TODO: Make this fail the auth flow after debugging
       }
 
-      const response = redirect("/");
+      const response = redirect("/", { replace: true });
       response.headers.set(
         "Set-Cookie",
         `auth-token=${data.session.access_token}; Path=/; HttpOnly; SameSite=Lax`
@@ -95,7 +95,8 @@ export const loader: LoaderFunction = async ({ request }) => {
     } catch (error) {
       console.error("[CALLBACK] Unexpected error:", error);
       return redirect(
-        `/auth/login?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`
+        `/auth/login?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+        { replace: true }
       );
     }
   }
@@ -107,6 +108,11 @@ export default function CallbackPage() {
   const navigate = useNavigate();
   const { scheme, noiseColor } = useTheme();
 
+  // Immediately replace the callback URL in history so back button doesn't hit it
+  useEffect(() => {
+    window.history.replaceState(null, "", "/");
+  }, []);
+
   useEffect(() => {
     const handleHashAuth = async () => {
       try {
@@ -115,7 +121,7 @@ export default function CallbackPage() {
 
         if (!supabaseUrl || !supabaseAnonKey) {
           console.error("[CALLBACK] Missing Supabase environment variables");
-          navigate("/auth/login?error=Server+configuration+error");
+          navigate("/auth/login?error=Server+configuration+error", { replace: true });
           return;
         }
 
@@ -127,7 +133,7 @@ export default function CallbackPage() {
 
         if (error) {
           console.error("[CALLBACK] Error getting session:", error);
-          navigate(`/auth/login?error=${encodeURIComponent(error.message)}`);
+          navigate(`/auth/login?error=${encodeURIComponent(error.message)}`, { replace: true });
           return;
         }
 
@@ -166,15 +172,16 @@ export default function CallbackPage() {
             // Don't fail auth if API call fails
           }
 
-          navigate("/");
+          navigate("/", { replace: true });
         } else {
           console.error("[CALLBACK] No session in fragment");
-          navigate("/auth/login?error=No+session+found");
+          navigate("/auth/login?error=No+session+found", { replace: true });
         }
       } catch (error) {
         console.error("[CALLBACK] Unexpected error:", error);
         navigate(
-          `/auth/login?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`
+          `/auth/login?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+          { replace: true }
         );
       }
     };

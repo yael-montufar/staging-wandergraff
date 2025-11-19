@@ -1,9 +1,24 @@
-import { type ActionFunction, redirect, useActionData, Form } from "react-router";
+import { type ActionFunction, type LoaderFunction, redirect, useActionData, Form } from "react-router";
 import { createClient } from "@supabase/supabase-js";
 import { useTheme } from "~/lib/useTheme";
 
 type ActionData = {
   error?: string;
+};
+
+export const loader: LoaderFunction = async ({ request }) => {
+  const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
+
+  const cookieHeader = request.headers.get("cookie");
+  const token = getAuthTokenFromCookie(cookieHeader);
+  const user = getUserFromToken(token);
+
+  // If user is already authenticated, redirect to home
+  if (user) {
+    return redirect("/");
+  }
+
+  return null;
 };
 
 export const action: ActionFunction = async ({ request }): Promise<ActionData | Response> => {
