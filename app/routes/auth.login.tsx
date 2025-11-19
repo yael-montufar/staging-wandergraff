@@ -43,8 +43,8 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
 
   // Handle OAuth
   if (provider === "google") {
-    console.log("[LOGIN] Initiating Google OAuth");
-    const redirectUrl = new URL("/auth/callback", new URL(request.url).origin);
+    const origin = new URL(request.url).origin;
+    const redirectUrl = new URL("/auth/callback", origin);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -106,6 +106,15 @@ export default function LoginPage() {
   const actionData = useActionData<ActionData>();
   const { scheme, noiseColor } = useTheme();
 
+  const handleGoogleSignIn = () => {
+    // Store the redirectTo parameter in sessionStorage so it survives the OAuth redirect
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTo = searchParams.get("redirectTo");
+    if (redirectTo) {
+      sessionStorage.setItem("auth-redirect", redirectTo);
+    }
+  };
+
   return (
     <div
       className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
@@ -135,6 +144,7 @@ export default function LoginPage() {
               type="submit"
               name="provider"
               value="google"
+              onClick={handleGoogleSignIn}
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

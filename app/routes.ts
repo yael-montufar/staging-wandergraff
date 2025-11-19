@@ -31,5 +31,6 @@ export default [
   route("countries/:id", "routes/countries.$id.tsx"),
   route("years", "routes/years.tsx"),
   route("years/:year", "routes/years.$year.tsx"),
+  route("map", "routes/map.tsx"),
   route("test/header", "routes/test.header.tsx"),
 ] satisfies RouteConfig;

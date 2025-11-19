@@ -11,6 +11,12 @@ export function useAuthStateValidation() {
   const rootData = useRouteLoaderData("root") as any;
 
   const validateAuthState = useCallback(() => {
+    // Skip validation on auth callback page since we're in the middle of OAuth processing
+    // The ref in the callback component prevents double-processing
+    if (typeof window !== "undefined" && window.location.pathname === "/auth/callback") {
+      return false;
+    }
+
     // Get current auth token from cookie
     const cookies = document.cookie.split(";");
     let authToken: string | null = null;
@@ -29,7 +35,6 @@ export function useAuthStateValidation() {
 
     // If there's a mismatch, revalidate to get fresh data
     if (hasLoaderUser !== hasAuthToken) {
-      console.debug("[useAuthStateValidation] Auth state mismatch detected, revalidating...");
       revalidator.revalidate();
       return true;
     }

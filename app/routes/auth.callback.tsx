@@ -1,6 +1,6 @@
 import { type LoaderFunction, redirect } from "react-router";
 import { createClient } from "@supabase/supabase-js";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTheme } from "~/lib/useTheme";
 import { prismaClient } from "~/lib/db.server";
@@ -28,7 +28,6 @@ export const loader: LoaderFunction = async ({ request }) => {
 
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-      console.log("[CALLBACK] Exchanging code for session");
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) {
@@ -41,25 +40,13 @@ export const loader: LoaderFunction = async ({ request }) => {
         return redirect("/auth/login?error=No+session+returned", { replace: true });
       }
 
-      console.log("[CALLBACK] Session established");
-
       // Create/upsert user in database
       try {
         const supabaseUser = data.session.user;
-        console.log("[CALLBACK] Supabase user data:", {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          metadata: supabaseUser.user_metadata
-        });
-
-        console.log("[CALLBACK] DATABASE_URL:", process.env.DATABASE_URL ? "✓ set" : "✗ missing");
-
         const prisma = await prismaClient();
-        console.log("[CALLBACK] Prisma client initialized");
 
         // Use Supabase user ID as the primary key
-        console.log("[CALLBACK] Attempting to upsert user:", supabaseUser.id);
-        const dbUser = await prisma.user.upsert({
+        await prisma.user.upsert({
           where: { id: supabaseUser.id },
           update: {
             email: supabaseUser.email,
@@ -72,21 +59,13 @@ export const loader: LoaderFunction = async ({ request }) => {
             role: "REGULAR_USER",
           },
         });
-
-        console.log("[CALLBACK] ✓ User created/updated in database:", { id: dbUser.id, email: dbUser.email });
       } catch (dbError) {
-        console.error("[CALLBACK] ✗ CRITICAL: Error creating/updating user in database");
-        console.error("[CALLBACK] Error details:", dbError);
-        // Log full error details
-        if (dbError instanceof Error) {
-          console.error("[CALLBACK] Error message:", dbError.message);
-          console.error("[CALLBACK] Error stack:", dbError.stack);
-        }
-        // For now, still allow auth to proceed so we can debug
-        // TODO: Make this fail the auth flow after debugging
+        console.error("[CALLBACK] Error creating/updating user in database:", dbError);
+        // Continue with auth even if user creation fails
       }
 
-      const response = redirect("/", { replace: true });
+      // Redirect back to callback to let client-side code handle the navigation
+      const response = redirect("/auth/callback", { replace: true });
       response.headers.set(
         "Set-Cookie",
         `auth-token=${data.session.access_token}; Path=/; HttpOnly; SameSite=Lax`
@@ -107,13 +86,15 @@ export const loader: LoaderFunction = async ({ request }) => {
 export default function CallbackPage() {
   const navigate = useNavigate();
   const { scheme, noiseColor } = useTheme();
-
-  // Immediately replace the callback URL in history so back button doesn't hit it
-  useEffect(() => {
-    window.history.replaceState(null, "", "/");
-  }, []);
+  const hasExecutedRef = useRef(false);
 
   useEffect(() => {
+    // Guard check at top of effect to prevent running twice in Strict Mode
+    if (hasExecutedRef.current) {
+      return;
+    }
+    hasExecutedRef.current = true;
+
     const handleHashAuth = async () => {
       try {
         const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
@@ -127,8 +108,6 @@ export default function CallbackPage() {
 
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        console.log("[CALLBACK] Processing OAuth callback with fragment tokens");
-
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
@@ -138,17 +117,10 @@ export default function CallbackPage() {
         }
 
         if (data.session) {
-          console.log("[CALLBACK] Session established via OAuth");
-          console.log("[CALLBACK] User from session:", {
-            id: data.session.user.id,
-            email: data.session.user.email
-          });
-
           // Set the auth cookie
           document.cookie = `auth-token=${data.session.access_token}; path=/; SameSite=Lax`;
 
           // Create/upsert user in database via API call
-          console.log("[CALLBACK] Creating user in database via API...");
           try {
             const response = await fetch("/api/auth/create-user", {
               method: "POST",
@@ -160,21 +132,22 @@ export default function CallbackPage() {
               }),
             });
 
-            const result = await response.json();
             if (!response.ok) {
-              console.error("[CALLBACK] Failed to create user:", result);
-              // Don't fail auth, just log the error
-            } else {
-              console.log("[CALLBACK] ✓ User created in database:", result);
+              console.error("[CALLBACK] Failed to create user in API");
             }
           } catch (apiError) {
             console.error("[CALLBACK] Error calling create-user API:", apiError);
-            // Don't fail auth if API call fails
           }
 
-          navigate("/", { replace: true });
+          // Get redirect URL from URL params first, then sessionStorage, default to home
+          const urlParams = new URL(window.location.href).searchParams;
+          let redirectTo = urlParams.get("redirectTo") || sessionStorage.getItem("auth-redirect") || "/";
+          sessionStorage.removeItem("auth-redirect");
+
+          // Use React Router's navigate with replace to handle history properly
+          navigate(redirectTo, { replace: true });
         } else {
-          console.error("[CALLBACK] No session in fragment");
+          console.error("[CALLBACK] No session found");
           navigate("/auth/login?error=No+session+found", { replace: true });
         }
       } catch (error) {
@@ -199,7 +172,7 @@ export default function CallbackPage() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="text-center" style={{ color: scheme.text }}>
+      <div className="text-center" style={{ color: scheme.text }} suppressHydrationWarning>
         <h1 className="text-2xl font-bold mb-2">Signing you in...</h1>
         <p>Please wait while we complete your authentication.</p>
       </div>
