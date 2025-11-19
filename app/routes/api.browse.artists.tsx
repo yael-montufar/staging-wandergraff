@@ -1,5 +1,5 @@
 import { type LoaderFunction } from "react-router";
-import { db } from "~/lib/db.server";
+import { prismaClient } from "~/lib/db.server";
 
 interface ArtistsByLetter {
   [letter: string]: Array<{
@@ -11,6 +11,7 @@ interface ArtistsByLetter {
 
 export const loader: LoaderFunction = async () => {
   try {
+    const db = await prismaClient();
     const artists = await db.artist.findMany({
       orderBy: [
         { artworkCount: "desc" },

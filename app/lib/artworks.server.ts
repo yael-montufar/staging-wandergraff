@@ -65,7 +65,7 @@ export async function createArtwork(
     },
   });
 
-  // Auto-create country counter for this artwork
+  // Auto-create country record when artwork is created (location-based)
   console.log("[ARTWORK] Ensuring country exists for coordinates:", latitude, longitude);
   await ensureCountryExists(latitude, longitude);
 
@@ -152,7 +152,7 @@ export async function deleteArtwork(id: string) {
     where: { artworkId: id },
   });
 
-  // Decrement country counter
+  // Decrement country counter (countries are registered for all artworks, not just claimed)
   console.log("[ARTWORK] Decrementing country count for:", artwork.latitude, artwork.longitude);
   const countryName = await extractCountryFromCoordinates(artwork.latitude, artwork.longitude);
   if (countryName) {
@@ -164,8 +164,8 @@ export async function deleteArtwork(id: string) {
     }
   }
 
-  // Decrement artist counter if artist exists
-  if (artwork.artist?.artistName) {
+  // Decrement artist counter only if artwork was CLAIMED
+  if (artwork.claimStatus === "CLAIMED" && artwork.artist?.artistName) {
     console.log("[ARTWORK] Decrementing artist count:", artwork.artist.artistName);
     const artist = await prisma.artist.findUnique({
       where: { name: artwork.artist.artistName },
@@ -175,8 +175,8 @@ export async function deleteArtwork(id: string) {
     }
   }
 
-  // Decrement year counter if year provided
-  if (artwork.yearCreated) {
+  // Decrement year counter only if artwork was CLAIMED and year provided
+  if (artwork.claimStatus === "CLAIMED" && artwork.yearCreated) {
     console.log("[ARTWORK] Decrementing year count:", artwork.yearCreated);
     const artworkYear = await prisma.artworkYear.findUnique({
       where: { year: artwork.yearCreated },

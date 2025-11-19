@@ -4,9 +4,6 @@ import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 import { ArtworkCardLandscape } from "~/components/ArtworkCardLandscape";
 
-// Countries and artworks data (to be populated from database)
-const COUNTRIES_MAP: Record<string, { name: string; artworks: any[] }> = {};
-
 // Color schemes - match site theme
 const colorSchemes = {
   light: {
@@ -27,8 +24,39 @@ export default function CountryDetailPage() {
   const { id } = useParams();
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
-  
-  const country = COUNTRIES_MAP[id || ""] || { name: "Unknown", artworks: [] };
+  const [countryName, setCountryName] = useState<string>("Loading...");
+  const [artworks, setArtworks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch country info and artworks
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch country info
+        const countryResponse = await fetch(`/api/country/by-id?countryId=${id}`);
+        if (countryResponse.ok) {
+          const country = await countryResponse.json();
+          setCountryName(country.name);
+        } else {
+          setCountryName("Unknown");
+        }
+
+        // Fetch artworks by country
+        const artworksResponse = await fetch(`/api/artworks/by-country?countryId=${id}`);
+        if (artworksResponse.ok) {
+          const data = await artworksResponse.json();
+          setArtworks(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch country data:", error);
+        setCountryName("Unknown");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
 
   // Detect theme preference
   useEffect(() => {
@@ -69,7 +97,7 @@ export default function CountryDetailPage() {
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Back and Header */}
         <div className="mb-12">
-          <a 
+          <a
             href="/countries"
             className="inline-block mb-4 font-semibold transition-colors duration-200"
             style={{ color: scheme.accent }}
@@ -78,36 +106,43 @@ export default function CountryDetailPage() {
           >
             ← Back to Countries
           </a>
-          <h1 
+          <h1
             className="text-4xl md:text-5xl font-bold"
             style={{ color: scheme.text }}
           >
-            {country.name}
+            {countryName}
           </h1>
         </div>
 
-        {/* Artworks Grid */}
-        {country.artworks.length > 0 ? (
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div
+              className="animate-spin rounded-full h-8 w-8"
+              style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+            />
+          </div>
+        ) : artworks.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {country.artworks.map((artwork: any) => (
+            {artworks.map((artwork: any) => (
               <ArtworkCardLandscape
                 key={artwork.id}
                 id={artwork.id}
                 title={artwork.title}
-                imageUrl={artwork.imageUrl}
-                artistName={artwork.artistName}
+                imageUrl={artwork.photos?.[0]?.photoUrl}
+                artistName={artwork.artist?.name}
                 claimStatus={artwork.claimStatus}
-                artworkArtistId={artwork.artworkArtistId}
+                artworkArtistId={artwork.artistId}
                 currentUserId={rootData?.user?.id}
                 currentUser={rootData?.user}
-                photoCount={artwork.photoCount}
+                photoCount={artwork.photos?.length || 0}
                 onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
               />
             ))}
           </div>
         ) : (
           <div className="text-center py-12">
-            <p style={{ color: scheme.text }}>No artworks found for {country.name}</p>
+            <p style={{ color: scheme.text }}>No artworks found for {countryName}</p>
           </div>
         )}
       </main>

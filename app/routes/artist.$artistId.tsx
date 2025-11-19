@@ -4,11 +4,6 @@ import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 import { ArtworkCardLandscape } from "~/components/ArtworkCardLandscape";
 
-// Artworks data (to be populated from database)
-const ARTWORKS: any[] = [];
-
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
 // Color schemes - match site theme
 const colorSchemes = {
   light: {
@@ -29,20 +24,42 @@ export default function ArtistDetailPage() {
   const { artistId = "" } = useParams();
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
+  const [artistName, setArtistName] = useState<string>("Loading...");
+  const [artistArtworks, setArtistArtworks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Decode artist name from URL slug
-  const decodedArtistName = artistId
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  // Fetch artist info and artworks
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch artist info
+        const artistResponse = await fetch(`/api/artist/by-id?artistId=${artistId}`);
+        if (artistResponse.ok) {
+          const artist = await artistResponse.json();
+          setArtistName(artist.name);
+        } else {
+          setArtistName("Unknown Artist");
+        }
 
-  // Filter artworks for this artist
-  const artistArtworks = ARTWORKS.filter(
-    (artwork) => artwork.artistId === artistId
-  );
+        // Fetch artworks by artist
+        const artworksResponse = await fetch(`/api/artworks/by-artist?artistId=${artistId}`);
+        if (artworksResponse.ok) {
+          const artworks = await artworksResponse.json();
+          setArtistArtworks(artworks);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artist data:", error);
+        setArtistName("Unknown Artist");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [artistId]);
 
   // Get first letter for navigation
-  const firstLetter = decodedArtistName.charAt(0).toUpperCase();
+  const firstLetter = artistName.charAt(0).toUpperCase();
 
   // Detect theme preference
   useEffect(() => {
@@ -106,28 +123,35 @@ export default function ArtistDetailPage() {
             className="text-5xl font-bold mb-4"
             style={{ color: scheme.text }}
           >
-            {decodedArtistName}
+            {artistName}
           </h1>
           <p style={{ color: scheme.text, opacity: 0.7 }}>
             {artistArtworks.length} {artistArtworks.length === 1 ? "artwork" : "artworks"}
           </p>
         </div>
 
-        {/* Artworks Grid */}
-        {artistArtworks.length > 0 ? (
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div
+              className="animate-spin rounded-full h-8 w-8"
+              style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+            />
+          </div>
+        ) : artistArtworks.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {artistArtworks.map((artwork: any) => (
               <ArtworkCardLandscape
                 key={artwork.id}
                 id={artwork.id}
                 title={artwork.title}
-                imageUrl={artwork.imageUrl}
-                artistName={artwork.artistName}
+                imageUrl={artwork.photos?.[0]?.photoUrl}
+                artistName={artwork.artist?.name}
                 claimStatus={artwork.claimStatus}
-                artworkArtistId={artwork.artworkArtistId}
+                artworkArtistId={artwork.artistId}
                 currentUserId={rootData?.user?.id}
                 currentUser={rootData?.user}
-                photoCount={artwork.photoCount}
+                photoCount={artwork.photos?.length || 0}
                 onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
               />
             ))}
@@ -135,7 +159,7 @@ export default function ArtistDetailPage() {
         ) : (
           <div className="text-center py-12">
             <p style={{ color: scheme.text }}>
-              No artworks found for {decodedArtistName}
+              No artworks found for {artistName}
             </p>
           </div>
         )}

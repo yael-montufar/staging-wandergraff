@@ -96,6 +96,93 @@ export default function HomePage() {
     return () => window.removeEventListener("wandergraff-theme-change", handleThemeChange);
   }, []);
 
+  // Function to get column count and width for each "cycle" of the repeating 4, 3, 4 pattern
+  const getRowConfig = (cycleIndex: number) => {
+    const rowInCycle = cycleIndex % 3; // 0 = 4 cols, 1 = 3 cols, 2 = 4 cols
+    if (rowInCycle === 0) {
+      return { cols: 4, colsSmall: 2, colsMed: 2, width: "w-full" };
+    } else if (rowInCycle === 1) {
+      return { cols: 3, colsSmall: 1, colsMed: 2, width: "w-full lg:w-3/4" };
+    } else {
+      return { cols: 4, colsSmall: 2, colsMed: 2, width: "w-full" };
+    }
+  };
+
+  // Build rows based on the repeating 4, 3, 4 pattern
+  const buildGridRows = () => {
+    const rows = [];
+    let artworkIndex = 0;
+    let cycleIndex = 0;
+
+    while (artworkIndex < artworks.length) {
+      const config = getRowConfig(cycleIndex);
+      const rowArtworks = artworks.slice(artworkIndex, artworkIndex + config.cols);
+
+      rows.push({
+        config,
+        artworks: rowArtworks,
+        startIndex: artworkIndex,
+      });
+
+      artworkIndex += config.cols;
+      cycleIndex++;
+    }
+
+    return rows;
+  };
+
+  const gridRows = buildGridRows();
+
+  const renderRow = (row: any, rowIndex: number) => {
+    const gridColsClass =
+      row.config.cols === 4
+        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        : "grid-cols-1 sm:grid-cols-1 lg:grid-cols-3";
+
+    const isCentered = row.config.cols === 3;
+    const wrapper = isCentered ? (
+      <div className="flex justify-center mb-6">
+        <div className={`grid ${gridColsClass} gap-6 ${row.config.width}`}>
+          {row.artworks.map((artwork: any) => (
+            <ArtworkCardLandscape
+              key={artwork.id}
+              id={artwork.id}
+              title={artwork.title}
+              imageUrl={artwork.photos?.[0]?.photoUrl}
+              artistName={artwork.artist?.name}
+              claimStatus={artwork.claimStatus}
+              artworkArtistId={artwork.artistId}
+              currentUserId={currentUserId}
+              currentUser={rootData?.user}
+              photoCount={artwork.photos?.length ?? 0}
+              onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
+            />
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className={`grid ${gridColsClass} gap-6 mb-6`}>
+        {row.artworks.map((artwork: any) => (
+          <ArtworkCardLandscape
+            key={artwork.id}
+            id={artwork.id}
+            title={artwork.title}
+            imageUrl={artwork.photos?.[0]?.photoUrl}
+            artistName={artwork.artist?.name}
+            claimStatus={artwork.claimStatus}
+            artworkArtistId={artwork.artistId}
+            currentUserId={currentUserId}
+            currentUser={rootData?.user}
+            photoCount={artwork.photos?.length ?? 0}
+            onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
+          />
+        ))}
+      </div>
+    );
+
+    return <div key={`row-${rowIndex}`}>{wrapper}</div>;
+  };
+
   return (
     <div
       className="min-h-screen relative"
@@ -121,91 +208,9 @@ export default function HomePage() {
             }}
           />
         ) : (
-          <>
-            {/* Row 1: 4 columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-              {artworks.slice(0, 4).map((artwork: any) => (
-                <ArtworkCardLandscape
-                  key={artwork.id}
-                  id={artwork.id}
-                  title={artwork.title}
-                  imageUrl={artwork.photos?.[0]?.photoUrl}
-                  artistName={artwork.artist?.name}
-                  claimStatus={artwork.claimStatus}
-                  artworkArtistId={artwork.artistId}
-                  currentUserId={currentUserId}
-                  currentUser={rootData?.user}
-                  photoCount={artwork.photos?.length ?? 0}
-                  onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
-                />
-              ))}
-            </div>
-
-            {/* Row 2: 3 columns (centered) */}
-            {artworks.length > 4 && (
-              <div className="flex justify-center mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full lg:w-3/4">
-                  {artworks.slice(4, 7).map((artwork: any) => (
-                    <ArtworkCardLandscape
-                      key={artwork.id}
-                      id={artwork.id}
-                      title={artwork.title}
-                      imageUrl={artwork.photos?.[0]?.photoUrl}
-                      artistName={artwork.artist?.name}
-                      claimStatus={artwork.claimStatus}
-                      artworkArtistId={artwork.artistId}
-                      currentUserId={currentUserId}
-                      currentUser={rootData?.user}
-                      photoCount={artwork.photos?.length ?? 0}
-                      onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Row 3: 4 columns */}
-            {artworks.length > 7 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                {artworks.slice(7, 11).map((artwork: any) => (
-                  <ArtworkCardLandscape
-                    key={artwork.id}
-                    id={artwork.id}
-                    title={artwork.title}
-                    imageUrl={artwork.photos?.[0]?.photoUrl}
-                    artistName={artwork.artist?.name}
-                    claimStatus={artwork.claimStatus}
-                    artworkArtistId={artwork.artistId}
-                    currentUserId={currentUserId}
-                    currentUser={rootData?.user}
-                    photoCount={artwork.photos?.length ?? 0}
-                    onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Row 4+: Remaining items (4 columns) */}
-            {artworks.length > 11 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {artworks.slice(11).map((artwork: any) => (
-                  <ArtworkCardLandscape
-                    key={artwork.id}
-                    id={artwork.id}
-                    title={artwork.title}
-                    imageUrl={artwork.photos?.[0]?.photoUrl}
-                    artistName={artwork.artist?.name}
-                    claimStatus={artwork.claimStatus}
-                    artworkArtistId={artwork.artistId}
-                    currentUserId={currentUserId}
-                    currentUser={rootData?.user}
-                    photoCount={artwork.photos?.length ?? 0}
-                    onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+          <div>
+            {gridRows.map((row, rowIndex) => renderRow(row, rowIndex))}
+          </div>
         )}
       </main>
     </div>

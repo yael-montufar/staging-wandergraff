@@ -578,7 +578,7 @@ async function seed() {
   }
   console.log(`✓ Artist browse records: ${claimedByArtists.size}`);
 
-  // Create Country records from artwork locations
+  // Create Country records from ALL artwork locations (countries are location-based)
   const countrySet = new Set<string>();
   for (const artwork of artworks) {
     const location = locations.find(
@@ -616,16 +616,16 @@ async function seed() {
   }
   console.log(`✓ Country browse records: ${countrySet.size}`);
 
-  // Create Year records
+  // Create Year records from CLAIMED artworks only
   const yearSet = new Set<number>();
-  for (const artwork of artworks) {
+  for (const artwork of claimedArtworks) {
     if (artwork.yearCreated) {
       yearSet.add(artwork.yearCreated);
     }
   }
 
   for (const year of yearSet) {
-    const artworkCount = artworks.filter(
+    const artworkCount = claimedArtworks.filter(
       (a) => a.yearCreated === year
     ).length;
 

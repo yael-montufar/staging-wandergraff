@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 
@@ -36,20 +36,19 @@ interface ArtistGridProps {
   scheme: typeof colorSchemes.light;
 }
 
-function slugifyArtistName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-");
-}
-
 function ArtistSection({ letter, artists, scheme }: ArtistGridProps) {
+  const hasArtists = artists.length > 0;
+
   return (
-    <div className="mb-12">
+    <div className="mb-12 scroll-mt-32">
       <div className="flex items-center gap-4 mb-6">
-        <h2
-          className="text-3xl font-bold"
-          style={{ color: scheme.text }}
+        <a
+          href={`/artists/${letter.toLowerCase()}`}
+          className="text-3xl font-bold transition-colors duration-200 no-underline hover:opacity-80"
+          style={{ color: hasArtists ? "#D24E47" : scheme.text, opacity: hasArtists ? 1 : 0.5 }}
         >
           {letter}
-        </h2>
+        </a>
         <div
           className="flex-1 h-[1px]"
           style={{ backgroundColor: scheme.accent, opacity: 0.3 }}
@@ -104,10 +103,16 @@ export default function ArtistsIndexPage() {
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
   const [artistsByLetter, setArtistsByLetter] = useState<ArtistsByLetter>({});
-  const [displayedLetters, setDisplayedLetters] = useState<string[]>(["A", "B", "C"]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const observerTarget = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Handle letter navigation/scroll
+  const handleLetterClick = (letter: string) => {
+    const element = sectionRefs.current[letter];
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   // Fetch artists from API
   useEffect(() => {
@@ -149,39 +154,6 @@ export default function ArtistsIndexPage() {
     return () => window.removeEventListener("wandergraff-theme-change", handleThemeChange);
   }, []);
 
-  // Intersection Observer for infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore && displayedLetters.length < ALPHABET.length) {
-          setIsLoadingMore(true);
-          // Simulate network delay
-          setTimeout(() => {
-            setDisplayedLetters((prev) => {
-              const nextIndex = ALPHABET.indexOf(prev[prev.length - 1]) + 1;
-              if (nextIndex < ALPHABET.length) {
-                return [...prev, ALPHABET[nextIndex]];
-              }
-              return prev;
-            });
-            setIsLoadingMore(false);
-          }, 300);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
-  }, [isLoadingMore, displayedLetters]);
-
   const scheme = colorSchemes[selectedScheme];
   const noiseColor = selectedScheme === "light" ? "E7E7E7" : "1A1A1A";
 
@@ -197,70 +169,89 @@ export default function ArtistsIndexPage() {
     >
       <Header user={rootData?.user} />
 
-      <main className="max-w-6xl mx-auto px-4 py-12">
-        {/* Page Header */}
-        <div className="mb-16">
-          <h1
-            className="text-4xl md:text-5xl font-bold mb-4"
-            style={{ color: scheme.text }}
-          >
-            Browse Artists
-          </h1>
-          <p style={{ color: scheme.text, opacity: 0.7 }}>
-            Scroll through all artists by name. Click on any artist to explore their artworks.
-          </p>
-        </div>
-
-        {/* Loading state */}
-        {isLoadingData ? (
-          <div className="flex justify-center py-12">
-            <div
-              className="animate-spin rounded-full h-8 w-8"
-              style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
-            />
-          </div>
-        ) : Object.keys(artistsByLetter).length > 0 ? (
-          <>
-            {/* Artists Grid by Letter */}
-            <div className="space-y-12">
-              {displayedLetters.map((letter) => (
-                <ArtistSection
+      <main className="flex gap-8 max-w-7xl mx-auto px-4 py-12">
+        {/* Sidebar Navigation */}
+        <aside className="sticky top-12 h-fit">
+          <div className="w-32 rounded-lg p-4" style={{ backgroundColor: scheme.secondaryBg }}>
+            <div className="grid grid-cols-2 gap-2">
+              {ALPHABET.map((letter) => (
+                <button
                   key={letter}
-                  letter={letter}
-                  artists={artistsByLetter[letter] || []}
-                  scheme={scheme}
-                />
+                  onClick={() => handleLetterClick(letter)}
+                  className="py-2 px-3 rounded font-bold transition-all duration-200 cursor-pointer text-sm"
+                  style={{
+                    backgroundColor: artistsByLetter[letter]?.length > 0 ? scheme.accent : "transparent",
+                    color: artistsByLetter[letter]?.length > 0 ? scheme.primaryBg : scheme.text,
+                    border: `1px solid ${artistsByLetter[letter]?.length > 0 ? scheme.accent : scheme.text}`,
+                    opacity: artistsByLetter[letter]?.length === 0 ? 0.4 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (artistsByLetter[letter]?.length === 0) {
+                      (e.currentTarget as HTMLElement).style.opacity = "0.6";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (artistsByLetter[letter]?.length === 0) {
+                      (e.currentTarget as HTMLElement).style.opacity = "0.4";
+                    }
+                  }}
+                >
+                  {letter}
+                </button>
               ))}
             </div>
-
-            {/* Loading indicator for infinite scroll */}
-            {isLoadingMore && (
-              <div className="flex justify-center py-8">
-                <div
-                  className="animate-spin rounded-full h-8 w-8"
-                  style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
-                />
-              </div>
-            )}
-
-            {/* Infinite scroll sentinel */}
-            <div ref={observerTarget} className="py-8 text-center">
-              {displayedLetters.length >= ALPHABET.length ? (
-                <p style={{ color: scheme.text, opacity: 0.5 }}>
-                  You've reached the end
-                </p>
-              ) : (
-                <p style={{ color: scheme.text, opacity: 0.5 }}>
-                  Scroll to load more artists...
-                </p>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-12">
-            <p style={{ color: scheme.text }}>No artists yet</p>
           </div>
-        )}
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Page Header */}
+          <div className="mb-16">
+            <h1
+              className="text-4xl md:text-5xl font-bold mb-4"
+              style={{ color: scheme.text }}
+            >
+              Browse Artists
+            </h1>
+            <p style={{ color: scheme.text, opacity: 0.7 }}>
+              Click a letter in the sidebar to jump to artists starting with that letter.
+            </p>
+          </div>
+
+          {/* Loading state */}
+          {isLoadingData ? (
+            <div className="flex justify-center py-12">
+              <div
+                className="animate-spin rounded-full h-8 w-8"
+                style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+              />
+            </div>
+          ) : Object.keys(artistsByLetter).length > 0 ? (
+            <>
+              {/* Artists Grid by Letter */}
+              <div className="space-y-12">
+                {ALPHABET.map((letter) => (
+                  <div
+                    key={letter}
+                    ref={(el) => {
+                      if (el) sectionRefs.current[letter] = el;
+                    }}
+                  >
+                    <ArtistSection
+                      letter={letter}
+                      artists={artistsByLetter[letter] || []}
+                      scheme={scheme}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p style={{ color: scheme.text }}>No artists yet</p>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

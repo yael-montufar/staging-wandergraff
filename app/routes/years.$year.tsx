@@ -4,9 +4,6 @@ import { useRouteLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 import { ArtworkCardLandscape } from "~/components/ArtworkCardLandscape";
 
-// Years and artworks data (to be populated from database)
-const YEARS_MAP: Record<string, { artworks: any[] }> = {};
-
 // Color schemes - match site theme
 const colorSchemes = {
   light: {
@@ -27,8 +24,27 @@ export default function YearDetailPage() {
   const { year } = useParams();
   const rootData = useRouteLoaderData("root") as any;
   const [selectedScheme, setSelectedScheme] = useState<keyof typeof colorSchemes>("light");
-  
-  const yearData = YEARS_MAP[year || ""] || { artworks: [] };
+  const [artworks, setArtworks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch artworks by year
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`/api/artworks/by-year?year=${year}`);
+        if (response.ok) {
+          const data = await response.json();
+          setArtworks(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch year data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [year]);
 
   // Detect theme preference
   useEffect(() => {
@@ -69,7 +85,7 @@ export default function YearDetailPage() {
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Back and Header */}
         <div className="mb-12">
-          <a 
+          <a
             href="/years"
             className="inline-block mb-4 font-semibold transition-colors duration-200"
             style={{ color: scheme.accent }}
@@ -78,7 +94,7 @@ export default function YearDetailPage() {
           >
             ← Back to Years
           </a>
-          <h1 
+          <h1
             className="text-4xl md:text-5xl font-bold"
             style={{ color: scheme.text }}
           >
@@ -86,21 +102,28 @@ export default function YearDetailPage() {
           </h1>
         </div>
 
-        {/* Artworks Grid */}
-        {yearData.artworks.length > 0 ? (
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div
+              className="animate-spin rounded-full h-8 w-8"
+              style={{ borderColor: `${scheme.accent}30`, borderTopColor: scheme.accent, borderWidth: "3px" }}
+            />
+          </div>
+        ) : artworks.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {yearData.artworks.map((artwork: any) => (
+            {artworks.map((artwork: any) => (
               <ArtworkCardLandscape
                 key={artwork.id}
                 id={artwork.id}
                 title={artwork.title}
-                imageUrl={artwork.imageUrl}
-                artistName={artwork.artistName}
+                imageUrl={artwork.photos?.[0]?.photoUrl}
+                artistName={artwork.artist?.name}
                 claimStatus={artwork.claimStatus}
-                artworkArtistId={artwork.artworkArtistId}
+                artworkArtistId={artwork.artistId}
                 currentUserId={rootData?.user?.id}
                 currentUser={rootData?.user}
-                photoCount={artwork.photoCount}
+                photoCount={artwork.photos?.length || 0}
                 onClick={() => (window.location.href = `/artwork/${artwork.id}`)}
               />
             ))}
