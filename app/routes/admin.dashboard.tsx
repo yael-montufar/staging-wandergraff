@@ -2,6 +2,7 @@ import { type LoaderFunction, type ActionFunction, redirect, useLoaderData, useA
 import { useState, useRef } from "react";
 import { getAuthTokenFromCookie, getUserFromToken } from "~/lib/auth.server";
 import { Header } from "~/components/Header";
+import { useTheme } from "~/lib/useTheme";
 
 type LoaderData = {
   artworks: Array<{
@@ -187,6 +188,7 @@ export default function AdminDashboard() {
   const rootData = useRouteLoaderData("root") as any;
   const data = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
+  const { scheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [claimStatus, setClaimStatus] = useState(searchParams.get("claimStatus") || "ALL");
@@ -287,7 +289,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+    <div className="min-h-screen" suppressHydrationWarning style={{ backgroundColor: scheme.primaryBg }}>
       <Header user={rootData?.user} />
 
       {/* Header */}

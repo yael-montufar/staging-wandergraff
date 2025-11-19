@@ -2,6 +2,7 @@ import { redirect, Form, useActionData, useRouteLoaderData } from "react-router"
 import type { Route } from "./+types/user.settings";
 import { Header } from "~/components/Header";
 import { useState, useRef, useEffect } from "react";
+import { useTheme } from "~/lib/useTheme";
 
 type LoaderData = {
   userDetails: {
@@ -97,6 +98,7 @@ export const action: Route.ActionFunction = async ({ request }) => {
 
 export default function SettingsPage() {
   const rootData = useRouteLoaderData("root") as any;
+  const { scheme, noiseColor } = useTheme();
   const loaderData = useRouteLoaderData("routes/user.settings") as LoaderData;
   const actionData = useActionData() as ActionData;
   const { userDetails } = loaderData;
@@ -191,7 +193,15 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+    <div
+      className="min-h-screen relative"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <Header user={rootData?.user} />
 
       <main className="max-w-2xl mx-auto px-4 py-12">

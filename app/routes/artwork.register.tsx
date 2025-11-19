@@ -2,6 +2,7 @@ import { type ActionFunction, redirect, useActionData } from "react-router";
 import { type LoaderFunction } from "react-router";
 import { useRef, useState, useEffect } from "react";
 import { getAuthTokenFromCookie, getUserFromToken } from "~/lib/auth.server";
+import { useTheme } from "~/lib/useTheme";
 import "leaflet/dist/leaflet.css";
 
 type ActionData = {
@@ -109,6 +110,7 @@ type MapInstance = any;
 
 export default function RegisterArtworkPage() {
   const actionData = useActionData<ActionData>();
+  const { scheme, noiseColor } = useTheme();
   const formRef = useRef<HTMLFormElement>(null);
   const mapRef = useRef<MapInstance>(null);
   const [L, setL] = useState<any>(null);
@@ -286,7 +288,15 @@ export default function RegisterArtworkPage() {
 
   if (actionData?.success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+      <div
+        className="min-h-screen relative flex items-center justify-center py-12 px-4"
+        suppressHydrationWarning
+        style={{
+          backgroundColor: scheme.primaryBg,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+          backgroundAttachment: "fixed",
+        }}
+      >
         <div className="max-w-md w-full text-center">
           <div className="rounded-full bg-green-100 p-6 w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -309,7 +319,15 @@ export default function RegisterArtworkPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div
+      className="min-h-screen relative py-12 px-4"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {/* Header */}

@@ -1,5 +1,6 @@
 import { type ActionFunction, redirect, useActionData, Form } from "react-router";
 import { createClient } from "@supabase/supabase-js";
+import { useTheme } from "~/lib/useTheme";
 
 type ActionData = {
   error?: string;
@@ -88,9 +89,18 @@ export const action: ActionFunction = async ({ request }): Promise<ActionData | 
 
 export default function LoginPage() {
   const actionData = useActionData<ActionData>();
+  const { scheme, noiseColor } = useTheme();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

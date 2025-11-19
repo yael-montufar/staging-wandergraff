@@ -3,6 +3,7 @@ import type { Route } from "./+types/user.profile";
 import { Header } from "~/components/Header";
 import { Button } from "~/components/ui/Button";
 import { useState, useEffect } from "react";
+import { useTheme } from "~/lib/useTheme";
 import { useDebounce } from "~/lib/useDebounce";
 
 type LoaderData = {
@@ -256,6 +257,7 @@ function PhotoCard({ photo, onMakePublic, onDelete }: any) {
 
 export default function UserDashboardPage() {
   const rootData = useRouteLoaderData("root") as any;
+  const { scheme, noiseColor } = useTheme();
   const loaderData = useRouteLoaderData("routes/user.profile") as LoaderData;
   const actionData = useActionData() as any;
   const { user, userDetails, allPhotos, collections } = loaderData;
@@ -330,7 +332,15 @@ export default function UserDashboardPage() {
   }, [debouncedSearchQuery]);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+    <div
+      className="min-h-screen relative"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <Header user={rootData?.user} />
 
       <main className="max-w-6xl mx-auto px-4 py-12">

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { getAuthTokenFromCookie } from "~/lib/auth.server";
 import { createPhotoPreview } from "~/lib/exif.client";
 import { convertMobileImage, formatFileSize } from "~/lib/image-conversion.client";
+import { useTheme } from "~/lib/useTheme";
 
 type LoaderData = {
   artworkId: string;
@@ -30,6 +31,7 @@ export const loader: LoaderFunction = ({ request }) => {
 
 export default function UploadPhotoPage() {
   const loaderData = useRouteLoaderData("routes/artwork.upload") as LoaderData;
+  const { scheme, noiseColor } = useTheme();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -130,7 +132,15 @@ export default function UploadPhotoPage() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div
+      className="min-h-screen relative flex items-center justify-center py-12 px-4"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <div className="max-w-2xl w-full">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">📸 Add Photo</h1>

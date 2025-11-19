@@ -8,6 +8,7 @@ import { getArtwork, claimArtwork } from "../lib/artworks.server";
 import { getPhotosByArtwork } from "../lib/photos.server";
 import { getAuthTokenFromCookie, getUserFromToken } from "../lib/auth.server";
 import { prismaClient } from "../lib/db.server";
+import { useTheme } from "../lib/useTheme";
 
 export const loader: Route.LoaderFunction = async ({ params, request }) => {
   const { id } = params;
@@ -246,6 +247,7 @@ export default function ArtworkDetailPage() {
   const currentUser = loaderData?.currentUser;
   const userPendingClaimsCount = loaderData?.userPendingClaimsCount ?? 0;
   const fetcher = useFetcher<any>();
+  const { scheme, noiseColor } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(artwork?.title || "");
   const [editYear, setEditYear] = useState(artwork?.yearCreated?.toString() || "");
@@ -273,13 +275,21 @@ export default function ArtworkDetailPage() {
 
   if (!artwork) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+      <div
+        className="min-h-screen relative"
+        suppressHydrationWarning
+        style={{
+          backgroundColor: scheme.primaryBg,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+          backgroundAttachment: "fixed",
+        }}
+      >
         <Header user={rootData?.user} />
         <main className="max-w-4xl mx-auto px-4 py-12">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Artwork Not Found</h1>
-            <p className="text-gray-600 mb-6">The artwork you're looking for doesn't exist.</p>
-            <a href="/" className="text-blue-600 hover:text-blue-700 font-medium">
+          <div className="text-center" style={{ color: scheme.text }}>
+            <h1 className="text-2xl font-bold mb-4">Artwork Not Found</h1>
+            <p className="mb-6" style={{ color: scheme.divider }}>The artwork you're looking for doesn't exist.</p>
+            <a href="/" className="font-medium hover:opacity-80" style={{ color: scheme.accent }}>
               ← Back to Gallery
             </a>
           </div>
@@ -315,7 +325,15 @@ export default function ArtworkDetailPage() {
   const primaryPhoto = officialPhotos[0] || communityPhotos[0];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#E7E7E7" }}>
+    <div
+      className="min-h-screen relative"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
       <Header user={rootData?.user} />
 
       <main className="max-w-4xl mx-auto px-4 py-12">
@@ -686,14 +704,23 @@ export default function ArtworkDetailPage() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const { scheme, noiseColor } = useTheme();
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-md mx-auto text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Artwork</h1>
-        <p className="text-gray-600 mb-6">
+    <div
+      className="min-h-screen relative py-12 px-4"
+      suppressHydrationWarning
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="max-w-md mx-auto text-center" style={{ color: scheme.text }}>
+        <h1 className="text-2xl font-bold mb-4">Error Loading Artwork</h1>
+        <p className="mb-6">
           {error instanceof Error ? error.message : "An error occurred while loading this artwork."}
         </p>
-        <a href="/" className="text-blue-600 hover:text-blue-700 font-medium">
+        <a href="/" className="font-medium hover:opacity-80" style={{ color: scheme.accent }}>
           ← Back to Gallery
         </a>
       </div>
