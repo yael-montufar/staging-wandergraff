@@ -973,6 +973,107 @@ User {
 
 ---
 
+## Artwork Registration Flow - Future Refinement
+
+### Decision: Require Reference Image for Pin Registration
+**Date:** Session 10
+**Status:** 📋 Proposed (Not yet implemented)
+
+**Problem:**
+- Current flow: Users pin on map with location only (no verification)
+- Risk: Anyone can pin duplicate artworks at same location without reference image
+- Need mechanism to identify if proposed pin is unique or duplicate
+- Without reference image, impossible to verify if pin represents actual artwork or spam
+
+**Proposed Solution:**
+- **Require Photo Upload**: To register a pin, user must upload a reference photo of the artwork
+- **Use Map-Pin Coordinates**: When pinning on map and clicking "pin artwork", automatically use that pin's coordinates (no manual entry needed)
+- **Photo Purpose**: Verify artwork exists at that location and is unique
+- **Prevents Duplicates**: Photo comparison (hash or manual review) can identify duplicate pins on same artwork
+
+**Implementation Strategy:**
+1. User pins location on map
+2. User clicks "pin artwork" (or equivalent action)
+3. System opens registration flow with coordinates pre-filled from pin
+4. User must upload photo before registering
+5. System checks photo against existing artworks at that location
+6. If duplicate suspected: show preview of existing artwork, let user confirm or cancel
+7. If unique: register new pin with photo as reference
+
+**Benefits:**
+- ✅ Prevents spam/duplicate pins without evidence
+- ✅ Provides proof artwork exists at location
+- ✅ Simplifies deduplication (can compare photos)
+- ✅ Maintains map integrity by requiring verification
+- ✅ Still enables quick community pinning (one photo required)
+
+**Trade-offs:**
+- Requires more effort from user (upload photo vs. location only)
+- Mobile users need camera access or uploaded photo
+- May reduce contribution rate (friction increase)
+
+**Related Decisions:**
+- See "Simplified Artwork Pinning Flow" - current coordinates-only pinning
+- See "Mobile Image Format Handling" - photo upload already optimized
+
+---
+
+### Decision: Future Verification System (Deferred)
+**Date:** Session 10
+**Status:** 📋 Proposed (Architecture planning phase)
+
+**Context:**
+Artwork registration currently relies on community pinning with minimal verification. As platform grows, need systematic approach to verify artworks are real and accurately documented.
+
+**Proposed Verification Approaches (To Evaluate Later):**
+
+**Option A: Photo-Based Verification**
+- Similar to ID verification apps (e.g., Onfido, Jumio)
+- User takes fresh photo of artwork at location
+- Photo geolocation metadata (if available) confirms location
+- Platform stores timestamp/location with photo
+- Community members can submit additional verification photos
+- Verification points system: artworks with more verification photos score higher
+
+**Option B: Location-Based Verification**
+- Require user to be physically at artwork location when pinning
+- Enable geofencing: "You must be within 10m of pin location to register"
+- Mobile-only constraint: desktop users can't pin (must be on-site)
+- Prevents remote duplicate pinning
+- Stronger guarantee of authenticity but significantly reduces contribution rate
+
+**Option C: Hybrid Approach**
+- Desktop users: Upload reference photo + metadata
+- Mobile users: Option to use camera (live geolocation + photo)
+- Progressive enhancement: more verification data = higher trust score
+- Artworks ranked by verification confidence
+
+**Key Questions to Answer Before Implementation:**
+1. What level of verification is needed? (MVP can be minimal)
+2. How to handle edge cases? (street art removed, altered, covered)
+3. Should verification affect visibility? (unverified artworks still visible?)
+4. Community vs. expert verification? (crowdsourced or curator review?)
+5. Re-verification when artwork changes? (annual checks, user submissions)
+
+**Potential Challenges:**
+- **Privacy**: Storing location + photo + timestamp = user tracking data
+- **Scalability**: Photo verification (AI or manual) is resource-intensive
+- **False Negatives**: Legitimate artworks may fail due to lighting/angle/vandalism
+- **User Friction**: Stricter verification = fewer contributions
+- **Liability**: If we verify, are we responsible for accuracy?
+
+**Not Yet Decided:**
+- Which verification approach fits Wandergraff's vision
+- Timeline for implementation
+- Whether verification affects artist claim approval process
+- How to handle verified vs. unverified artworks in discovery
+
+**Related Decisions:**
+- See "Artwork Registration Flow - Require Reference Image"
+- See "Admin Role & Pin Management" - admins currently delete bad pins
+
+---
+
 ## Future Work & Planned Features
 
 ### Phase 2 Onboarding & Claims
@@ -988,6 +1089,8 @@ User {
 - [ ] Artist statistics (total artworks, reach, impact)
 - [ ] Collection following (follow artists, follow collections)
 - [ ] Artist messaging (direct communication on platform)
+- [ ] Artwork registration flow refinement (required reference photo)
+- [ ] Verification system (photo-based, location-based, or hybrid approach)
 
 ---
 
@@ -1010,6 +1113,7 @@ User {
 | 2.2 | Session 8 | Implemented Phase 1 curation system: auto-create Country/Artist/Year records on artwork events, maintain denormalized counters, add file cleanup on deletion, wire handlers into artworks.server.ts |
 | 2.3 | Session 9 | **Artist Registration on Role Change**: Artists are now registered when a user's role is set to ARTIST. Counts are maintained via claims. Updated browse APIs to reflect this. |
 | 2.4 | Session 10 | **Implemented Artist Registration**: Added `ensureArtistExists()` call to "become-artist" and "update-artist-info" actions. Artists automatically register in browse system when role changes to ARTIST. |
+| 2.5 | Session 10 | **Artwork Registration Flow Future Decision**: Proposed requiring reference photo for pin registration to prevent duplicates. Documented future verification system approaches (photo-based, location-based, hybrid). Deferred implementation pending further design. |
 
 ---
 
