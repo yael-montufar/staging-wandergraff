@@ -7,9 +7,10 @@ export async function prismaClient() {
   if (prisma) return prisma;
 
   try {
-    // Import from generated directory per prisma/schema.prisma config
-    // From app/lib/db.server.ts, go up 2 levels to project root, then into generated/prisma/client
-    const { PrismaClient } = await import("../../generated/prisma/client");
+    // Import from .prisma/client per prisma/schema.prisma config
+    // In dev: relative path works (app/lib -> project root -> .prisma/client)
+    // In prod: Node resolves @prisma/client through package exports
+    const { PrismaClient } = await import("@prisma/client");
     prisma = new PrismaClient();
     return prisma;
   } catch (error) {

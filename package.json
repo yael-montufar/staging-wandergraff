@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "react-router build",
+    "build": "node build.js",
     "dev": "react-router dev",
     "start": "npm run dev",
     "typecheck": "react-router typegen && tsc",

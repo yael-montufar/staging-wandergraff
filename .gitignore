@@ -8,8 +8,6 @@
 # Local Netlify folder
 .netlify
 
-/generated/prisma
-
 # Environment files
 .env*
 
