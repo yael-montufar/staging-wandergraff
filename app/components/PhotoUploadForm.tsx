@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import { convertMobileImage, formatFileSize } from "~/lib/image-conversion.client";
-import { createPhotoPreview } from "~/lib/exif.client";
+import { convertMobileImage, formatFileSize, createPhotoPreview } from "~/lib/image-conversion.client";
 
 interface PhotoUploadFormProps {
   latitude: number;
