@@ -24,7 +24,7 @@ export default function MapFloatingMenu({
   isLocating,
   locationPermissionGranted,
 }: MapFloatingMenuProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const needsAttention = currentZoom < maxZoom;
 
