@@ -9,6 +9,46 @@ import {
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
+import { useAuthSync } from "./lib/useAuthSync";
+import { useAuthStateValidation } from "./lib/useAuthStateValidation";
+
+export const loader: Route.LoaderFunction = async ({ request }) => {
+  const { getAuthTokenFromCookie, getUserFromToken } = await import("./lib/auth.server");
+  const { prismaClient } = await import("./lib/db.server");
+
+  const cookieHeader = request.headers.get("cookie");
+  const token = getAuthTokenFromCookie(cookieHeader);
+  const user = getUserFromToken(token);
+
+  let userWithProfile = user;
+
+  // If user is authenticated, fetch their profile including avatar and role
+  if (user) {
+    try {
+      const prisma = await prismaClient();
+      const profile = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          avatarUrl: true,
+          role: true,
+        },
+      });
+
+      if (profile) {
+        userWithProfile = {
+          ...user,
+          avatarUrl: profile.avatarUrl,
+          role: profile.role,
+        };
+      }
+    } catch (error) {
+      console.error("[ROOT] Error fetching user profile:", error);
+      // Continue with basic user info if profile fetch fails
+    }
+  }
+
+  return { user: userWithProfile };
+};
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -20,6 +60,10 @@ export const links: Route.LinksFunction = () => [
   {
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Bebas+Neue:wght@400;700&family=Oswald:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap",
   },
   { rel: "stylesheet", href: stylesheet },
 ];
@@ -43,6 +87,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useAuthSync();
+  useAuthStateValidation();
   return <Outlet />;
 }
 

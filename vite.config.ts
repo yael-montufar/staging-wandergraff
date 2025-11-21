@@ -13,4 +13,10 @@ export default defineConfig({
     },
   },
   plugins: [reactRouter(), tsconfigPaths(), netlifyReactRouter(), netlify()],
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: true,
+    cors: true,
+  },
 });
