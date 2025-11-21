@@ -54,22 +54,19 @@ export default function MapFloatingMenu({
     >
       {/* Wave Animation Container - Only show when collapsed and needs attention */}
       {needsAttention && !isExpanded && (
-        <div style={{ position: "fixed", bottom: "24px", right: "24px", width: "80px", height: "80px", pointerEvents: "none" }}>
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
           {[0, 1, 2].map((i) => (
             <div
               key={i}
               style={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: "80px",
-                height: "80px",
-                transform: "translate(-50%, -50%)",
+                width: "56px",
+                height: "56px",
                 borderRadius: "50%",
                 border: `2px solid ${scheme.accent}`,
                 opacity: 0.4,
-                animation: `pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
-                animationDelay: `${i * 0.667}s`,
+                animation: `pulse-ring 3.5s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
+                animationDelay: `${i * 1.167}s`,
               }}
             />
           ))}
