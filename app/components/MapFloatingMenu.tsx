@@ -48,20 +48,20 @@ export default function MapFloatingMenu({
       ref={menuRef}
       style={{
         zIndex: 10001,
-        width: isExpanded ? "280px" : "56px",
+        width: isExpanded ? "280px" : "44px",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
       {/* Wave Animation Container - Only show when collapsed and needs attention */}
       {needsAttention && !isExpanded && (
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: "-8px", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
           {[0, 1, 2].map((i) => (
             <div
               key={i}
               style={{
                 position: "absolute",
-                width: "40px",
-                height: "40px",
+                width: "44px",
+                height: "44px",
                 borderRadius: "50%",
                 border: `1.5px solid ${scheme.accent}`,
                 opacity: 0.4,
@@ -85,7 +85,7 @@ export default function MapFloatingMenu({
           display: "flex",
           flexDirection: "column",
           gap: isExpanded ? "12px" : "0px",
-          minHeight: "56px",
+          minHeight: "44px",
           position: "relative",
           zIndex: 1,
         }}
@@ -166,14 +166,14 @@ export default function MapFloatingMenu({
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             style={{
-              width: isExpanded ? "0px" : "56px",
-              height: "56px",
+              width: isExpanded ? "0px" : "44px",
+              height: "44px",
               borderRadius: "50%",
               border: "none",
               backgroundColor: scheme.secondaryBg,
               color: scheme.text,
               cursor: "pointer",
-              fontSize: "24px",
+              fontSize: "20px",
               fontWeight: "bold",
               display: isExpanded ? "none" : "flex",
               alignItems: "center",
