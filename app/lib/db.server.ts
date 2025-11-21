@@ -1,20 +1,22 @@
-// Prisma client initialization - deferred to avoid SSR issues
-// Import lazily when actually needed
+import { PrismaClient } from "@prisma/client";
 
-let prisma: any = null;
+let prismaInstance: PrismaClient | null = null;
 
-export async function prismaClient() {
-  if (prisma) return prisma;
+function getPrismaClient(): PrismaClient {
+  if (prismaInstance) return prismaInstance;
 
-  try {
-    // Import from .prisma/client per prisma/schema.prisma config
-    // In dev: relative path works (app/lib -> project root -> .prisma/client)
-    // In prod: Node resolves @prisma/client through package exports
-    const { PrismaClient } = await import("@prisma/client");
-    prisma = new PrismaClient();
-    return prisma;
-  } catch (error) {
-    console.error("Failed to initialize Prisma client:", error);
-    throw error;
+  prismaInstance = new PrismaClient();
+
+  // Handle cleanup on process exit
+  if (typeof process !== "undefined") {
+    process.on("exit", () => {
+      prismaInstance?.$disconnect();
+    });
   }
+
+  return prismaInstance;
+}
+
+export async function prismaClient(): Promise<PrismaClient> {
+  return getPrismaClient();
 }
