@@ -1,6 +1,4 @@
 import type { Route } from "./+types/api.user.walls";
-import { getAuthTokenFromCookie, getUserFromToken } from "~/lib/auth.server";
-import { getUserCollections } from "~/lib/collections.server";
 
 export const loader: Route.LoaderFunction = async ({ request }) => {
   try {
