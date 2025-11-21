@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 
 interface MapFloatingMenuProps {
   scheme: {
@@ -27,17 +27,20 @@ export default function MapFloatingMenu({
   const [isExpanded, setIsExpanded] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const needsAttention = currentZoom < maxZoom;
+  const [, startTransition] = useTransition();
 
   // Handle smooth expand/collapse with View Transitions API
   const toggleExpanded = () => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
+    startTransition(() => {
+      if (document.startViewTransition) {
+        document.startViewTransition(() => {
+          setIsExpanded(!isExpanded);
+        });
+      } else {
+        // Fallback for browsers without View Transitions API
         setIsExpanded(!isExpanded);
-      });
-    } else {
-      // Fallback for browsers without View Transitions API
-      setIsExpanded(!isExpanded);
-    }
+      }
+    });
   };
 
   // Close menu when clicking outside
@@ -111,6 +114,7 @@ export default function MapFloatingMenu({
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: "8px",
+              animation: "fade-in-menu 0.3s ease-out 0.1s both",
             }}
           >
             <span
@@ -125,13 +129,15 @@ export default function MapFloatingMenu({
             <button
               type="button"
               onClick={() => {
-                if (document.startViewTransition) {
-                  document.startViewTransition(() => {
+                startTransition(() => {
+                  if (document.startViewTransition) {
+                    document.startViewTransition(() => {
+                      setIsExpanded(false);
+                    });
+                  } else {
                     setIsExpanded(false);
-                  });
-                } else {
-                  setIsExpanded(false);
-                }
+                  }
+                });
               }}
               style={{
                 background: "none",
@@ -165,6 +171,7 @@ export default function MapFloatingMenu({
               borderRadius: "8px",
               backgroundColor: needsAttention ? scheme.accent + "15" : "transparent",
               borderLeft: needsAttention ? `3px solid ${scheme.accent}` : "none",
+              animation: "fade-in-menu 0.3s ease-out 0.2s both",
             }}
           >
             {needsAttention
@@ -180,6 +187,7 @@ export default function MapFloatingMenu({
             flexDirection: isExpanded ? "column" : "column",
             gap: isExpanded ? "10px" : "0px",
             alignItems: "stretch",
+            animation: isExpanded ? "fade-in-menu 0.3s ease-out 0.3s both" : "none",
           }}
         >
           {/* Info/Menu Button - Hidden when expanded */}
@@ -222,13 +230,15 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onRandomLocation();
-                  if (document.startViewTransition) {
-                    document.startViewTransition(() => {
+                  startTransition(() => {
+                    if (document.startViewTransition) {
+                      document.startViewTransition(() => {
+                        setIsExpanded(false);
+                      });
+                    } else {
                       setIsExpanded(false);
-                    });
-                  } else {
-                    setIsExpanded(false);
-                  }
+                    }
+                  });
                 }}
                 style={{
                   width: "100%",
@@ -262,13 +272,15 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onLocationClick();
-                  if (document.startViewTransition) {
-                    document.startViewTransition(() => {
+                  startTransition(() => {
+                    if (document.startViewTransition) {
+                      document.startViewTransition(() => {
+                        setIsExpanded(false);
+                      });
+                    } else {
                       setIsExpanded(false);
-                    });
-                  } else {
-                    setIsExpanded(false);
-                  }
+                    }
+                  });
                 }}
                 disabled={isLocating}
                 style={{
@@ -315,6 +327,17 @@ export default function MapFloatingMenu({
           100% {
             transform: scale(1.4);
             opacity: 0;
+          }
+        }
+
+        @keyframes fade-in-menu {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
 
