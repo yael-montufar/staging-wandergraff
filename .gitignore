@@ -14,3 +14,7 @@
 .env*
 
 /public/uploads/
+
+/dl/
+
+/REF/
