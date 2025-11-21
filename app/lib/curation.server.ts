@@ -1,4 +1,4 @@
-import { db } from "./db.server";
+import { prismaClient } from "./db.server";
 import { extractCountryFromCoordinates } from "./geocoding.server";
 
 /**
@@ -19,6 +19,7 @@ export async function ensureCountryExists(
     }
 
     // Create or get the country
+    const db = await prismaClient();
     const country = await db.country.upsert({
       where: { name: countryName },
       update: {
@@ -52,6 +53,7 @@ export async function ensureArtistExists(artistName: string): Promise<string | n
     const normalizedName = artistName.trim();
 
     // Create or get the artist
+    const db = await prismaClient();
     const artist = await db.artist.upsert({
       where: { name: normalizedName },
       update: {
@@ -83,6 +85,7 @@ export async function ensureYearExists(year: number): Promise<string | null> {
 
   try {
     // Create or get the year
+    const db = await prismaClient();
     const artworkYear = await db.artworkYear.upsert({
       where: { year },
       update: {
@@ -108,6 +111,7 @@ export async function ensureYearExists(year: number): Promise<string | null> {
  */
 export async function updateCountryCount(countryId: string, increment: number) {
   try {
+    const db = await prismaClient();
     await db.country.update({
       where: { id: countryId },
       data: {
@@ -126,6 +130,7 @@ export async function updateCountryCount(countryId: string, increment: number) {
  */
 export async function updateArtistCount(artistId: string, increment: number) {
   try {
+    const db = await prismaClient();
     await db.artist.update({
       where: { id: artistId },
       data: {
@@ -144,6 +149,7 @@ export async function updateArtistCount(artistId: string, increment: number) {
  */
 export async function updateYearCount(yearId: string, increment: number) {
   try {
+    const db = await prismaClient();
     await db.artworkYear.update({
       where: { id: yearId },
       data: {
