@@ -50,18 +50,21 @@ export default function MapFloatingMenu({
         zIndex: 10001,
         width: isExpanded ? "280px" : "56px",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        position: "relative",
       }}
     >
       {/* Wave Animation Container - Only show when collapsed and needs attention */}
       {needsAttention && !isExpanded && (
-        <div style={{ position: "absolute", inset: "-12px", pointerEvents: "none" }}>
+        <div style={{ position: "fixed", bottom: "24px", right: "24px", width: "80px", height: "80px", pointerEvents: "none" }}>
           {[0, 1, 2].map((i) => (
             <div
               key={i}
               style={{
                 position: "absolute",
-                inset: 0,
+                top: "50%",
+                left: "50%",
+                width: "80px",
+                height: "80px",
+                transform: "translate(-50%, -50%)",
                 borderRadius: "50%",
                 border: `2px solid ${scheme.accent}`,
                 opacity: 0.4,
