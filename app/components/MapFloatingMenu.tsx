@@ -28,6 +28,18 @@ export default function MapFloatingMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const needsAttention = currentZoom < maxZoom;
 
+  // Handle smooth expand/collapse with View Transitions API
+  const toggleExpanded = () => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        setIsExpanded(!isExpanded);
+      });
+    } else {
+      // Fallback for browsers without View Transitions API
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,7 +100,8 @@ export default function MapFloatingMenu({
           minHeight: "44px",
           position: "relative",
           zIndex: 1,
-        }}
+          viewTransitionName: "menu-container",
+        } as React.CSSProperties}
       >
         {/* Header with close button (only when expanded) */}
         {isExpanded && (
@@ -111,7 +124,15 @@ export default function MapFloatingMenu({
             </span>
             <button
               type="button"
-              onClick={() => setIsExpanded(false)}
+              onClick={() => {
+                if (document.startViewTransition) {
+                  document.startViewTransition(() => {
+                    setIsExpanded(false);
+                  });
+                } else {
+                  setIsExpanded(false);
+                }
+              }}
               style={{
                 background: "none",
                 border: "none",
@@ -164,7 +185,7 @@ export default function MapFloatingMenu({
           {/* Info/Menu Button - Hidden when expanded */}
           <button
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={toggleExpanded}
             style={{
               width: isExpanded ? "0px" : "44px",
               height: "44px",
@@ -201,7 +222,13 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onRandomLocation();
-                  setIsExpanded(false);
+                  if (document.startViewTransition) {
+                    document.startViewTransition(() => {
+                      setIsExpanded(false);
+                    });
+                  } else {
+                    setIsExpanded(false);
+                  }
                 }}
                 style={{
                   width: "100%",
@@ -235,7 +262,13 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onLocationClick();
-                  setIsExpanded(false);
+                  if (document.startViewTransition) {
+                    document.startViewTransition(() => {
+                      setIsExpanded(false);
+                    });
+                  } else {
+                    setIsExpanded(false);
+                  }
                 }}
                 disabled={isLocating}
                 style={{
@@ -272,7 +305,7 @@ export default function MapFloatingMenu({
         </div>
       </div>
 
-      {/* CSS Animation Keyframes */}
+      {/* CSS Animation Keyframes and View Transitions */}
       <style>{`
         @keyframes pulse-ring {
           0% {
@@ -282,6 +315,32 @@ export default function MapFloatingMenu({
           100% {
             transform: scale(1.4);
             opacity: 0;
+          }
+        }
+
+        ::view-transition-old(menu-container) {
+          animation: 0.3s cubic-bezier(0.4, 0, 1, 1) both fade-out;
+        }
+
+        ::view-transition-new(menu-container) {
+          animation: 0.3s cubic-bezier(0, 0, 0.2, 1) both fade-in;
+        }
+
+        @keyframes fade-out {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
           }
         }
       `}</style>
