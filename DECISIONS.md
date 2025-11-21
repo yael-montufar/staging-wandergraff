@@ -440,12 +440,48 @@ npx prisma generate
 **Resolution:** Implemented API endpoint for user creation with Prisma upsert pattern
 
 ### Issue: Multiple Supabase Client Instances Warning
-**Console Warning:** "Multiple GoTrueClient instances detected in the same browser context"  
-**Status:** Expected behavior in development (not an error)  
+**Console Warning:** "Multiple GoTrueClient instances detected in the same browser context"
+**Status:** Expected behavior in development (not an error)
 **Action:** Monitor for production impact
 
 ### Issue: React Leaflet Compatibility
 **Resolution:** Downgraded react-leaflet to v3 to match React Router v7 compatibility
+
+### Issue: Prisma Client Generation Failure - Module Resolution Error
+**Date:** Session 11
+**Status:** ✅ **RESOLVED**
+
+**Problem:**
+- `npm run db:wipe` was failing with `PrismaClientInitializationError: Cannot find module '.prisma/client/default'`
+- This prevented database operations and seeding
+- Root causes identified:
+  1. Conflicting `./generated/` folder in project root containing old Prisma client
+  2. Generator provider was `"prisma-client"` (incorrect) instead of `"prisma-client-js"`
+  3. Old generated client was preventing proper module resolution
+
+**Solution Applied:**
+1. **Fixed `prisma/schema.prisma`:**
+   - Changed `provider = "prisma-client"` → `provider = "prisma-client-js"`
+   - Removed incorrect `output = "../.prisma/client"` path (uses Prisma default)
+
+2. **Cleaned Up Conflicting Files:**
+   - Deleted entire `./generated/` directory
+   - This old folder was interfering with npm's module resolution
+
+3. **Regenerated Prisma Client:**
+   - Ran `npm install` which triggered `postinstall` script
+   - Generated proper client files to `node_modules/@prisma/client`
+   - Now creates both JS and TS files correctly
+
+**Verification:**
+```bash
+✅ npm install succeeded with proper Prisma generation
+✅ npm run db:wipe executed successfully
+✅ Database operations now functional
+```
+
+**Key Learning:**
+The `"prisma-client"` provider only generates TypeScript files, while `"prisma-client-js"` (the correct provider) generates both TypeScript and JavaScript files that Node.js needs for module resolution.
 
 ---
 
