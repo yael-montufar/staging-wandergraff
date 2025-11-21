@@ -60,10 +60,10 @@ export default function MapFloatingMenu({
               key={i}
               style={{
                 position: "absolute",
-                width: "56px",
-                height: "56px",
+                width: "40px",
+                height: "40px",
                 borderRadius: "50%",
-                border: `2px solid ${scheme.accent}`,
+                border: `1.5px solid ${scheme.accent}`,
                 opacity: 0.4,
                 animation: `pulse-ring 3.5s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
                 animationDelay: `${i * 1.167}s`,
@@ -169,7 +169,7 @@ export default function MapFloatingMenu({
               width: isExpanded ? "0px" : "56px",
               height: "56px",
               borderRadius: "50%",
-              border: `2px solid ${scheme.text}`,
+              border: "none",
               backgroundColor: scheme.secondaryBg,
               color: scheme.text,
               cursor: "pointer",
@@ -182,6 +182,7 @@ export default function MapFloatingMenu({
               position: "relative",
               flexShrink: 0,
               padding: "0",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
             }}
             title={
               needsAttention

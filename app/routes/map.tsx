@@ -211,7 +211,6 @@ export default function MapPage() {
             html: `
               <div style="
                 background-color: ${scheme.accent};
-                border: 2px solid ${scheme.text};
                 border-radius: 50%;
                 width: 40px;
                 height: 40px;
@@ -259,7 +258,6 @@ export default function MapPage() {
             html: `
               <div style="
                 background-color: ${color};
-                border: 2px solid ${scheme.text};
                 border-radius: 50%;
                 width: 32px;
                 height: 32px;
