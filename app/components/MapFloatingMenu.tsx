@@ -50,8 +50,29 @@ export default function MapFloatingMenu({
         zIndex: 10001,
         width: isExpanded ? "280px" : "56px",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        position: "relative",
       }}
     >
+      {/* Wave Animation Container - Only show when collapsed and needs attention */}
+      {needsAttention && !isExpanded && (
+        <div style={{ position: "absolute", inset: "-12px", pointerEvents: "none" }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "50%",
+                border: `2px solid ${scheme.accent}`,
+                opacity: 0.4,
+                animation: `pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
+                animationDelay: `${i * 0.667}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Morphing Menu Container */}
       <div
         style={{
@@ -65,6 +86,8 @@ export default function MapFloatingMenu({
           flexDirection: "column",
           gap: isExpanded ? "12px" : "0px",
           minHeight: "56px",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         {/* Header with close button (only when expanded) */}
@@ -99,32 +122,13 @@ export default function MapFloatingMenu({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: needsAttention ? 1 : 0.6,
+                opacity: 0.6,
                 position: "relative",
                 transition: "opacity 0.2s",
               }}
               title="Close menu"
             >
               ✕
-              {/* Attention animation on close button when message exists */}
-              {needsAttention && (
-                <div style={{ position: "absolute", inset: "-8px", pointerEvents: "none" }}>
-                  {[0, 1].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        borderRadius: "4px",
-                        border: `1.5px solid ${scheme.accent}`,
-                        opacity: 0.3,
-                        animation: `pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
-                        animationDelay: `${i * 0.75}s`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
             </button>
           </div>
         )}
@@ -165,9 +169,9 @@ export default function MapFloatingMenu({
               width: isExpanded ? "0px" : "56px",
               height: "56px",
               borderRadius: "50%",
-              border: `2px solid ${needsAttention ? scheme.accent : scheme.text}`,
-              backgroundColor: needsAttention ? scheme.accent : scheme.secondaryBg,
-              color: needsAttention ? "#fff" : scheme.text,
+              border: `2px solid ${scheme.text}`,
+              backgroundColor: scheme.secondaryBg,
+              color: scheme.text,
               cursor: "pointer",
               fontSize: "24px",
               fontWeight: "bold",
@@ -178,7 +182,6 @@ export default function MapFloatingMenu({
               position: "relative",
               flexShrink: 0,
               padding: "0",
-              overflow: "hidden",
             }}
             title={
               needsAttention
@@ -187,25 +190,6 @@ export default function MapFloatingMenu({
             }
           >
             ℹ️
-            {/* Circular Waves Animation - Only show when needs attention */}
-            {needsAttention && !isExpanded && (
-              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none" }}>
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "50%",
-                      border: `2px solid ${scheme.accent}`,
-                      opacity: 0.4,
-                      animation: `pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
-                      animationDelay: `${i * 0.667}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
           </button>
 
           {/* Action Buttons (only when expanded) */}
