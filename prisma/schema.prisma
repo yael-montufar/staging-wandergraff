@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -61,6 +61,9 @@ model Country {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Relations
+  artworks      Artwork[]
+
   @@index([name])
   @@index([artworkCount])
 }
@@ -107,6 +110,7 @@ model Artwork {
   claimStatus   ClaimStatus @default(UNCLAIMED)
   createdById   String
   artistId      String?
+  countryId     String?  // Location-based country from geocoding
   rejectedAt    DateTime?  // Timestamp of when claim was last rejected (for cooldown enforcement)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -114,6 +118,7 @@ model Artwork {
   // Relations
   createdBy     User     @relation("CreatedArtworks", fields: [createdById], references: [id], onDelete: Cascade)
   artist        User?    @relation("ClaimedArtworks", fields: [artistId], references: [id], onDelete: SetNull)
+  country       Country? @relation(fields: [countryId], references: [id], onDelete: SetNull)
   photos        Photo[]
   galleries     Gallery[]
   saves         Save[]
@@ -122,6 +127,7 @@ model Artwork {
   @@unique([latitude, longitude])
   @@index([createdById])
   @@index([artistId])
+  @@index([countryId])
   @@index([claimStatus])
   @@index([yearCreated])
   @@index([latitude, longitude])

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 
 interface MapFloatingMenuProps {
   scheme: {
@@ -24,9 +24,24 @@ export default function MapFloatingMenu({
   isLocating,
   locationPermissionGranted,
 }: MapFloatingMenuProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const needsAttention = currentZoom < maxZoom;
+  const [, startTransition] = useTransition();
+
+  // Handle smooth expand/collapse with View Transitions API
+  const toggleExpanded = () => {
+    startTransition(() => {
+      if (document.startViewTransition) {
+        document.startViewTransition(() => {
+          setIsExpanded(!isExpanded);
+        });
+      } else {
+        // Fallback for browsers without View Transitions API
+        setIsExpanded(!isExpanded);
+      }
+    });
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -48,10 +63,31 @@ export default function MapFloatingMenu({
       ref={menuRef}
       style={{
         zIndex: 10001,
-        width: isExpanded ? "280px" : "56px",
+        width: isExpanded ? "280px" : "44px",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
+      {/* Wave Animation Container - Only show when collapsed and needs attention */}
+      {needsAttention && !isExpanded && (
+        <div style={{ position: "absolute", inset: "-8px", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                width: "44px",
+                height: "44px",
+                borderRadius: "50%",
+                border: `1.5px solid ${scheme.accent}`,
+                opacity: 0.4,
+                animation: `pulse-ring 3.5s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
+                animationDelay: `${i * 1.167}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Morphing Menu Container */}
       <div
         style={{
@@ -64,8 +100,11 @@ export default function MapFloatingMenu({
           display: "flex",
           flexDirection: "column",
           gap: isExpanded ? "12px" : "0px",
-          minHeight: "56px",
-        }}
+          minHeight: "44px",
+          position: "relative",
+          zIndex: 1,
+          viewTransitionName: "menu-container",
+        } as React.CSSProperties}
       >
         {/* Header with close button (only when expanded) */}
         {isExpanded && (
@@ -75,6 +114,7 @@ export default function MapFloatingMenu({
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: "8px",
+              animation: "fade-in-menu 0.3s ease-out 0.1s both",
             }}
           >
             <span
@@ -88,7 +128,17 @@ export default function MapFloatingMenu({
             </span>
             <button
               type="button"
-              onClick={() => setIsExpanded(false)}
+              onClick={() => {
+                startTransition(() => {
+                  if (document.startViewTransition) {
+                    document.startViewTransition(() => {
+                      setIsExpanded(false);
+                    });
+                  } else {
+                    setIsExpanded(false);
+                  }
+                });
+              }}
               style={{
                 background: "none",
                 border: "none",
@@ -99,32 +149,13 @@ export default function MapFloatingMenu({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: needsAttention ? 1 : 0.6,
+                opacity: 0.6,
                 position: "relative",
                 transition: "opacity 0.2s",
               }}
               title="Close menu"
             >
               ✕
-              {/* Attention animation on close button when message exists */}
-              {needsAttention && (
-                <div style={{ position: "absolute", inset: "-8px", pointerEvents: "none" }}>
-                  {[0, 1].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        borderRadius: "4px",
-                        border: `1.5px solid ${scheme.accent}`,
-                        opacity: 0.3,
-                        animation: `pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
-                        animationDelay: `${i * 0.75}s`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
             </button>
           </div>
         )}
@@ -140,6 +171,7 @@ export default function MapFloatingMenu({
               borderRadius: "8px",
               backgroundColor: needsAttention ? scheme.accent + "15" : "transparent",
               borderLeft: needsAttention ? `3px solid ${scheme.accent}` : "none",
+              animation: "fade-in-menu 0.3s ease-out 0.2s both",
             }}
           >
             {needsAttention
@@ -155,21 +187,22 @@ export default function MapFloatingMenu({
             flexDirection: isExpanded ? "column" : "column",
             gap: isExpanded ? "10px" : "0px",
             alignItems: "stretch",
+            animation: isExpanded ? "fade-in-menu 0.3s ease-out 0.3s both" : "none",
           }}
         >
           {/* Info/Menu Button - Hidden when expanded */}
           <button
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={toggleExpanded}
             style={{
-              width: isExpanded ? "0px" : "56px",
-              height: "56px",
+              width: isExpanded ? "0px" : "44px",
+              height: "44px",
               borderRadius: "50%",
-              border: `2px solid ${needsAttention ? scheme.accent : scheme.text}`,
-              backgroundColor: needsAttention ? scheme.accent : scheme.secondaryBg,
-              color: needsAttention ? "#fff" : scheme.text,
+              border: "none",
+              backgroundColor: scheme.secondaryBg,
+              color: scheme.text,
               cursor: "pointer",
-              fontSize: "24px",
+              fontSize: "20px",
               fontWeight: "bold",
               display: isExpanded ? "none" : "flex",
               alignItems: "center",
@@ -178,7 +211,7 @@ export default function MapFloatingMenu({
               position: "relative",
               flexShrink: 0,
               padding: "0",
-              overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
             }}
             title={
               needsAttention
@@ -187,25 +220,6 @@ export default function MapFloatingMenu({
             }
           >
             ℹ️
-            {/* Circular Waves Animation - Only show when needs attention */}
-            {needsAttention && !isExpanded && (
-              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none" }}>
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "50%",
-                      border: `2px solid ${scheme.accent}`,
-                      opacity: 0.4,
-                      animation: `pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
-                      animationDelay: `${i * 0.667}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
           </button>
 
           {/* Action Buttons (only when expanded) */}
@@ -216,7 +230,15 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onRandomLocation();
-                  setIsExpanded(false);
+                  startTransition(() => {
+                    if (document.startViewTransition) {
+                      document.startViewTransition(() => {
+                        setIsExpanded(false);
+                      });
+                    } else {
+                      setIsExpanded(false);
+                    }
+                  });
                 }}
                 style={{
                   width: "100%",
@@ -250,7 +272,15 @@ export default function MapFloatingMenu({
                 type="button"
                 onClick={() => {
                   onLocationClick();
-                  setIsExpanded(false);
+                  startTransition(() => {
+                    if (document.startViewTransition) {
+                      document.startViewTransition(() => {
+                        setIsExpanded(false);
+                      });
+                    } else {
+                      setIsExpanded(false);
+                    }
+                  });
                 }}
                 disabled={isLocating}
                 style={{
@@ -287,7 +317,7 @@ export default function MapFloatingMenu({
         </div>
       </div>
 
-      {/* CSS Animation Keyframes */}
+      {/* CSS Animation Keyframes and View Transitions */}
       <style>{`
         @keyframes pulse-ring {
           0% {
@@ -297,6 +327,43 @@ export default function MapFloatingMenu({
           100% {
             transform: scale(1.4);
             opacity: 0;
+          }
+        }
+
+        @keyframes fade-in-menu {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        ::view-transition-old(menu-container) {
+          animation: 0.3s cubic-bezier(0.4, 0, 1, 1) both fade-out;
+        }
+
+        ::view-transition-new(menu-container) {
+          animation: 0.3s cubic-bezier(0, 0, 0.2, 1) both fade-in;
+        }
+
+        @keyframes fade-out {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
           }
         }
       `}</style>

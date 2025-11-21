@@ -287,7 +287,7 @@ To prevent duplicate artwork entries, we'll implement a dedup detection algorith
 
 **Benefits:**
 - ✅ iPhone users can upload directly (no manual conversion)
-- ✅ Smaller file sizes (optimized on client)
+- �� Smaller file sizes (optimized on client)
 - ✅ Faster uploads
 - ✅ Works offline
 - ✅ Better UX than server-side conversion
@@ -440,12 +440,48 @@ npx prisma generate
 **Resolution:** Implemented API endpoint for user creation with Prisma upsert pattern
 
 ### Issue: Multiple Supabase Client Instances Warning
-**Console Warning:** "Multiple GoTrueClient instances detected in the same browser context"  
-**Status:** Expected behavior in development (not an error)  
+**Console Warning:** "Multiple GoTrueClient instances detected in the same browser context"
+**Status:** Expected behavior in development (not an error)
 **Action:** Monitor for production impact
 
 ### Issue: React Leaflet Compatibility
 **Resolution:** Downgraded react-leaflet to v3 to match React Router v7 compatibility
+
+### Issue: Prisma Client Generation Failure - Module Resolution Error
+**Date:** Session 11
+**Status:** ✅ **RESOLVED**
+
+**Problem:**
+- `npm run db:wipe` was failing with `PrismaClientInitializationError: Cannot find module '.prisma/client/default'`
+- This prevented database operations and seeding
+- Root causes identified:
+  1. Conflicting `./generated/` folder in project root containing old Prisma client
+  2. Generator provider was `"prisma-client"` (incorrect) instead of `"prisma-client-js"`
+  3. Old generated client was preventing proper module resolution
+
+**Solution Applied:**
+1. **Fixed `prisma/schema.prisma`:**
+   - Changed `provider = "prisma-client"` → `provider = "prisma-client-js"`
+   - Removed incorrect `output = "../.prisma/client"` path (uses Prisma default)
+
+2. **Cleaned Up Conflicting Files:**
+   - Deleted entire `./generated/` directory
+   - This old folder was interfering with npm's module resolution
+
+3. **Regenerated Prisma Client:**
+   - Ran `npm install` which triggered `postinstall` script
+   - Generated proper client files to `node_modules/@prisma/client`
+   - Now creates both JS and TS files correctly
+
+**Verification:**
+```bash
+✅ npm install succeeded with proper Prisma generation
+✅ npm run db:wipe executed successfully
+✅ Database operations now functional
+```
+
+**Key Learning:**
+The `"prisma-client"` provider only generates TypeScript files, while `"prisma-client-js"` (the correct provider) generates both TypeScript and JavaScript files that Node.js needs for module resolution.
 
 ---
 
@@ -1094,6 +1130,82 @@ Artwork registration currently relies on community pinning with minimal verifica
 
 ---
 
+## Database Migration to Neon
+
+### Decision: Switch from Supabase PostgreSQL to Neon Serverless PostgreSQL
+**Date:** Session 11 (November 21, 2025)
+**Status:** ✅ Implemented
+
+**Problem:**
+- Supabase connection pooler (port 6543) caused "prepared statement already exists" (42P05) errors under concurrent database writes
+- PgBouncer pooling algorithm reused statement names across connections, causing collisions
+- This prevented file uploads and artwork creation in production
+
+**Solution:**
+- Migrated to Neon serverless PostgreSQL
+- Project ID: `still-forest-64891548`
+- Neon's pooler handles concurrent connections better than PgBouncer
+- All 6 Prisma migrations successfully applied
+
+**Configuration:**
+- **Local Dev:** Uses direct connection (port 5432) via `.env`
+- **Vercel Staging/Production:** Uses Neon's pooler (port 5432) - works reliably with serverless
+- Connection string stored in Vercel environment variables
+
+**Database Connection Split:**
+The prepared statement issue revealed a critical insight: different deployments need different connection strategies:
+- **Local development** benefits from direct Postgres connections (avoids pooler overhead)
+- **Serverless environments** (Vercel) benefit from connection pooling (manages concurrent Lambda executions)
+- **Supabase pooler** was the problem child - not optimized for concurrent writes
+- **Neon pooler** is specifically designed for this pattern and works reliably
+
+**Trade-offs:**
+- Lost some Supabase-specific features (auth is still Supabase, but DB is now separate)
+- Need to manage two separate services (Supabase for auth/storage, Neon for database)
+- Small cost difference (but Neon is generally cheaper)
+
+**Benefits:**
+- ✅ Reliable concurrent writes without connection pooling errors
+- ✅ Better Vercel integration (designed for serverless)
+- ✅ Faster query performance in serverless environment
+- ✅ No more prepared statement collisions
+
+---
+
+## Codebase Cleanup (Session 11)
+
+### Decision: Remove Unused EXIF Dependencies and Code
+**Date:** Session 11 (November 21, 2025)
+**Status:** ✅ Completed
+
+**What Was Removed:**
+1. **Dependency:** `exifr` library (no longer used)
+   - Per DECISIONS.md, EXIF extraction feature was removed
+   - `createPhotoPreview()` was the only function still in use (reads file as data URL, doesn't need exifr)
+
+2. **Code:** `app/lib/exif.client.ts` file
+   - Moved `createPhotoPreview()` to `app/lib/image-conversion.client.ts`
+   - Updated imports in:
+     - `app/components/PhotoUploadForm.tsx`
+     - `app/routes/artwork.upload.tsx`
+
+3. **Dependency:** `@types/pg` (unused)
+   - Installed for raw PostgreSQL driver, but Prisma is the DB layer
+   - No code uses the raw `pg` driver
+
+**Database Schema:**
+- Left `exifLatitude`, `exifLongitude`, `exifAltitude` columns in Photo model
+- These exist in database but are never populated (backward compatible)
+- No migration needed - fields simply remain null
+
+**Results:**
+- 2 unused dependencies removed
+- 1 unused file removed
+- No breaking changes
+- All imports updated and verified
+
+---
+
 ## Document History
 
 | Version | Date | Key Changes |
@@ -1114,6 +1226,8 @@ Artwork registration currently relies on community pinning with minimal verifica
 | 2.3 | Session 9 | **Artist Registration on Role Change**: Artists are now registered when a user's role is set to ARTIST. Counts are maintained via claims. Updated browse APIs to reflect this. |
 | 2.4 | Session 10 | **Implemented Artist Registration**: Added `ensureArtistExists()` call to "become-artist" and "update-artist-info" actions. Artists automatically register in browse system when role changes to ARTIST. |
 | 2.5 | Session 10 | **Artwork Registration Flow Future Decision**: Proposed requiring reference photo for pin registration to prevent duplicates. Documented future verification system approaches (photo-based, location-based, hybrid). Deferred implementation pending further design. |
+| 2.6 | Session 11 | **Database Migration to Neon**: Switched from Supabase to Neon serverless PostgreSQL to resolve prepared statement pooling errors. All migrations applied successfully. |
+| 2.7 | Session 11 | **Codebase Cleanup**: Removed unused `exifr` and `@types/pg` dependencies, moved `createPhotoPreview` to image-conversion library, verified authorization checks on admin routes. |
 
 ---
 

@@ -211,7 +211,6 @@ export default function MapPage() {
             html: `
               <div style="
                 background-color: ${scheme.accent};
-                border: 2px solid ${scheme.text};
                 border-radius: 50%;
                 width: 40px;
                 height: 40px;
@@ -259,7 +258,6 @@ export default function MapPage() {
             html: `
               <div style="
                 background-color: ${color};
-                border: 2px solid ${scheme.text};
                 border-radius: 50%;
                 width: 32px;
                 height: 32px;
@@ -379,6 +377,15 @@ export default function MapPage() {
 
         // Import Leaflet CSS
         await import("leaflet/dist/leaflet.css");
+
+        // Fix default marker icon paths for npm-installed Leaflet
+        // @ts-ignore
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        });
 
         // Import Leaflet marker cluster CSS and library
         await import("leaflet.markercluster/dist/MarkerCluster.css");
@@ -517,6 +524,33 @@ export default function MapPage() {
     }
   };
 
+  // Create pin icon for temporary marker during pinning
+  const createPinIcon = () => {
+    const scheme = colorSchemes[selectedScheme];
+    return leafletRef.current?.divIcon({
+      html: `
+        <div style="
+          background-color: transparent;
+          border: none;
+          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          cursor: pointer;
+        ">
+          📍
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 28],
+      popupAnchor: [0, -28],
+      className: "pin-marker",
+    });
+  };
+
   // Handle map clicks to place marker
   const handleMapClick = async (lat: number, lng: number) => {
     if (!leafletRef.current || !mapInstance.current) return;
@@ -534,8 +568,9 @@ export default function MapPage() {
     setSelectedMarker(null);
     setIsCheckingLocation(true);
 
-    // Create marker at clicked location
+    // Create marker at clicked location with pin icon
     const marker = L.marker([lat, lng], {
+      icon: createPinIcon(),
       draggable: false,
     }).addTo(map);
 

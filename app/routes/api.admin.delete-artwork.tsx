@@ -11,7 +11,7 @@ export const action: ActionFunction = async ({ request }) => {
   const user = getUserFromToken(token);
 
   if (!user || user.role !== "ADMIN") {
-    return { error: "Unauthorized" }, { status: 403 };
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
   }
 
   const formData = await request.formData();

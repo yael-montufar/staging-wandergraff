@@ -27,13 +27,10 @@ export const loader: LoaderFunction = async ({ request }) => {
       });
     }
 
-    // Find all artworks (any status) with this country in their address
+    // Find all artworks (claimed and unclaimed) with this country
     const artworks = await db.artwork.findMany({
       where: {
-        address: {
-          contains: country.name,
-          mode: "insensitive",
-        },
+        countryId: countryId,
       },
       include: {
         artist: true,

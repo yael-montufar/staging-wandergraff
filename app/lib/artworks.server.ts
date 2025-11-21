@@ -77,7 +77,16 @@ export async function createArtwork(
 
   // Auto-create country record when artwork is created (location-based)
   console.log("[ARTWORK] Ensuring country exists for coordinates:", latitude, longitude);
-  await ensureCountryExists(latitude, longitude);
+  const countryId = await ensureCountryExists(latitude, longitude);
+
+  // Update artwork with countryId if we successfully created/found a country
+  if (countryId) {
+    const updatedArtwork = await prisma.artwork.update({
+      where: { id: artwork.id },
+      data: { countryId },
+    });
+    return updatedArtwork;
+  }
 
   return artwork;
 }

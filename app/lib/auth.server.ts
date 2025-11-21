@@ -2,6 +2,7 @@ export type User = {
   id: string;
   email: string;
   name?: string;
+  role?: string;
 };
 
 function decodeJWT(token: string): any {

@@ -7,6 +7,8 @@ config({ path: resolve(process.cwd(), ".env") });
 import { prismaClient } from "../app/lib/db.server";
 import fs from "fs";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 
 // Locations with real coordinates from different cities for street art
 const locations = [
@@ -56,13 +58,76 @@ interface Location {
   country: string;
 }
 
-async function getAvailableImages(): Promise<string[]> {
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+async function getOrUploadSeedImages(): Promise<string[]> {
   try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error(
+        "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables"
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const SEED_BUCKET = "artwork-photos";
+
+    // Check if seed photos already exist
+    const { data: existingFiles, error: listError } = await supabase.storage
+      .from(SEED_BUCKET)
+      .list("seed", { limit: 500 });
+
+    if (!listError && existingFiles && existingFiles.length > 0) {
+      console.log(
+        `✓ Found ${existingFiles.length} existing seed images in storage`
+      );
+      // Return existing image URLs
+      return existingFiles.map((file) => {
+        const { data: publicUrl } = supabase.storage
+          .from(SEED_BUCKET)
+          .getPublicUrl(`seed/${file.name}`);
+        return publicUrl.publicUrl;
+      });
+    }
+
+    // Upload seed images
+    console.log("⏳ Uploading 181 images to Supabase Storage...");
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
     const files = fs.readdirSync(uploadsDir).filter((f) => f.endsWith(".jpg"));
-    return files.map((f) => `/uploads/${f}`);
+
+    const uploadedUrls: string[] = [];
+
+    for (const fileName of files) {
+      const localFilePath = path.join(uploadsDir, fileName);
+      const fileBuffer = fs.readFileSync(localFilePath);
+      const timestamp = Date.now();
+      const randomId = randomBytes(8).toString("hex");
+      const filename = `${timestamp}-${randomId}.jpg`;
+      const remotePath = `seed/${filename}`;
+
+      const { error, data } = await supabase.storage
+        .from(SEED_BUCKET)
+        .upload(remotePath, fileBuffer, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+
+      if (error) {
+        console.error(`Error uploading ${fileName}:`, error);
+        continue;
+      }
+
+      const { data: publicUrl } = supabase.storage
+        .from(SEED_BUCKET)
+        .getPublicUrl(remotePath);
+
+      uploadedUrls.push(publicUrl.publicUrl);
+    }
+
+    console.log(`✓ Uploaded ${uploadedUrls.length} images to Supabase Storage`);
+    return uploadedUrls;
   } catch (error) {
-    console.error("Error reading uploads directory:", error);
+    console.error("Error managing seed images:", error);
     return [];
   }
 }
@@ -80,15 +145,6 @@ async function seed() {
   const prisma = await prismaClient();
 
   console.log("🌱 Starting database seed...");
-
-  // Get available images
-  const availableImages = await getAvailableImages();
-  console.log(`📷 Found ${availableImages.length} images in uploads folder`);
-
-  if (availableImages.length === 0) {
-    console.error("❌ No images found in public/uploads. Aborting seed.");
-    return;
-  }
 
   // Clear existing data (preserve order for FK constraints)
   console.log("🗑️ Clearing existing data...");
@@ -303,6 +359,22 @@ async function seed() {
     artistFull2,
   ];
 
+  // Pre-create all countries to link artworks
+  const countryMap = new Map<string, string>();
+  for (const location of locations) {
+    if (!countryMap.has(location.country)) {
+      const country = await prisma.country.upsert({
+        where: { name: location.country },
+        update: {},
+        create: {
+          name: location.country,
+          artworkCount: 0,
+        },
+      });
+      countryMap.set(location.country, country.id);
+    }
+  }
+
   // Create artworks
   console.log("🎨 Creating artworks...");
   let imageIndex = 0;
@@ -320,6 +392,7 @@ async function seed() {
   // Unclaimed artworks (no artist)
   for (let i = 0; i < 5; i++) {
     const location = getRandomItem(locations);
+    const countryId = countryMap.get(location.country);
     const artwork = await prisma.artwork.create({
       data: {
         title: `Urban Expression ${i + 1}`,
@@ -329,6 +402,7 @@ async function seed() {
         claimStatus: "UNCLAIMED",
         createdById: admin.id,
         yearCreated: 2019 + Math.floor(Math.random() * 5),
+        countryId,
       },
     });
     artworks.push({
@@ -346,6 +420,7 @@ async function seed() {
   for (let i = 0; i < 3; i++) {
     const location = getRandomItem(locations);
     const artist = i === 0 ? artistPending1 : artistPending2;
+    const countryId = countryMap.get(location.country);
     const artwork = await prisma.artwork.create({
       data: {
         title: `Pending Claim ${i + 1}`,
@@ -356,6 +431,7 @@ async function seed() {
         createdById: admin.id,
         artistId: artist.id,
         yearCreated: 2020 + Math.floor(Math.random() * 4),
+        countryId,
       },
     });
     artworks.push({
@@ -376,6 +452,7 @@ async function seed() {
     const artist = [artistActive1, artistActive2, artistActive3][
       i % 3
     ];
+    const countryId = countryMap.get(location.country);
     const artwork = await prisma.artwork.create({
       data: {
         title: `Claimed Masterpiece ${i + 1}`,
@@ -386,6 +463,7 @@ async function seed() {
         createdById: admin.id,
         artistId: artist.id,
         yearCreated: 2018 + Math.floor(Math.random() * 6),
+        countryId,
       },
     });
     artworks.push({
@@ -404,6 +482,7 @@ async function seed() {
   for (let i = 0; i < 5; i++) {
     const location = getRandomItem(locations);
     const artist = i < 3 ? artistFull1 : artistFull2;
+    const countryId = countryMap.get(location.country);
     const artwork = await prisma.artwork.create({
       data: {
         title: `${artist.artistName} Creation ${i + 1}`,
@@ -414,6 +493,7 @@ async function seed() {
         createdById: admin.id,
         artistId: artist.id,
         yearCreated: 2017 + Math.floor(Math.random() * 7),
+        countryId,
       },
     });
     artworks.push({
@@ -431,17 +511,20 @@ async function seed() {
   console.log(`✓ Total artworks created: ${artworks.length}`);
 
   // Create photos and associate with artworks
-  console.log("📸 Creating photos and associations...");
+  console.log("📸 Preparing photos and creating associations...");
   let photosCreated = 0;
+
+  // Get or upload seed images (checks storage first, uploads only if needed)
+  const uploadedPhotoUrls = await getOrUploadSeedImages();
 
   // Photos for unclaimed artworks (2-3 per artwork)
   const unclaimedArtworks = artworks.filter((a) => a.claimStatus === "UNCLAIMED");
   for (const artwork of unclaimedArtworks) {
     const photoCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < photoCount; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       await prisma.photo.create({
         data: {
           artworkId: artwork.id,
@@ -460,9 +543,9 @@ async function seed() {
   for (const artwork of claimedArtworks) {
     const photoCount = 4 + Math.floor(Math.random() * 5);
     for (let i = 0; i < photoCount; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       const uploadedById = artwork.artistId
         ? allArtists.find((a) => a.id === artwork.artistId)?.id ||
           admin.id
@@ -521,12 +604,12 @@ async function seed() {
 
   // Add photos to users who only upload photos (no claims)
   console.log("📷 Adding photos for non-artist photographers...");
-  const photoCountPerPhotographer = Math.floor(availableImages.length / 10);
+  const photoCountPerPhotographer = Math.floor(uploadedPhotoUrls.length / 10);
   for (const photographer of [regularPhotographer1, regularPhotographer2]) {
     for (let i = 0; i < photoCountPerPhotographer; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       await prisma.photo.create({
         data: {
           userId: photographer.id,
@@ -578,43 +661,18 @@ async function seed() {
   }
   console.log(`✓ Artist browse records: ${claimedByArtists.size}`);
 
-  // Create Country records from ALL artwork locations (countries are location-based)
-  const countrySet = new Set<string>();
-  for (const artwork of artworks) {
-    const location = locations.find(
-      (l) =>
-        Math.abs(l.lat - artwork.latitude) < 0.01 &&
-        Math.abs(l.lon - artwork.longitude) < 0.01
-    );
-    if (location) {
-      countrySet.add(location.country);
-    }
-  }
-
-  for (const country of countrySet) {
-    const artworkCount = artworks.filter((a) => {
-      const location = locations.find(
-        (l) =>
-          Math.abs(l.lat - a.latitude) < 0.01 &&
-          Math.abs(l.lon - a.longitude) < 0.01
-      );
-      return location?.country === country;
-    }).length;
-
-    await prisma.country.upsert({
-      where: { name: country },
-      update: {
-        artworkCount: {
-          increment: artworkCount,
-        },
-      },
-      create: {
-        name: country,
-        artworkCount,
-      },
+  // Update country artwork counts based on linked artworks
+  console.log("🎯 Updating country artwork counts...");
+  for (const [countryName, countryId] of countryMap.entries()) {
+    const artworkCount = await prisma.artwork.count({
+      where: { countryId },
+    });
+    await prisma.country.update({
+      where: { id: countryId },
+      data: { artworkCount },
     });
   }
-  console.log(`✓ Country browse records: ${countrySet.size}`);
+  console.log(`✓ Country browse records: ${countryMap.size}`);
 
   // Create Year records from CLAIMED artworks only
   const yearSet = new Set<number>();
@@ -778,6 +836,7 @@ async function seed() {
     `📊 Summary:
     - Users created: 15 (1 admin, 3 regular, 2 photographers, 2 artists no activity, 2 artists pending, 3 artists active, 2 artists full)
     - Artworks created: ${artworks.length} (5 unclaimed, 3 pending, 4 active, 5 full-activity)
+    - Images uploaded to Supabase Storage: ${uploadedPhotoUrls.length}
     - Photos created: ${photosCreated + photoCountPerPhotographer * 2}
     - Collections created: 4
     - Browse records (Artist/Country/Year): Ready for browse endpoints
