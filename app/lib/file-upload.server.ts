@@ -11,7 +11,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-const BUCKET_NAME = "artwork-photos";
+const BUCKET_NAME = "artwork-media";
 
 export async function ensureStorageBucket() {
   try {

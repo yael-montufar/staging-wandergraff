@@ -7,6 +7,8 @@ config({ path: resolve(process.cwd(), ".env") });
 import { prismaClient } from "../app/lib/db.server";
 import fs from "fs";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 
 // Locations with real coordinates from different cities for street art
 const locations = [
@@ -56,14 +58,62 @@ interface Location {
   country: string;
 }
 
-async function getAvailableImages(): Promise<string[]> {
+async function getAvailableImages(): Promise<{ filePath: string; fileName: string }[]> {
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   try {
     const files = fs.readdirSync(uploadsDir).filter((f) => f.endsWith(".jpg"));
-    return files.map((f) => `/uploads/${f}`);
+    return files.map((f) => ({
+      filePath: path.join(uploadsDir, f),
+      fileName: f,
+    }));
   } catch (error) {
     console.error("Error reading uploads directory:", error);
     return [];
+  }
+}
+
+async function uploadImageToSupabase(
+  localFilePath: string,
+  fileName: string
+): Promise<string | null> {
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error(
+        "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables"
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const SEED_BUCKET = "artwork-photos";
+
+    const fileBuffer = fs.readFileSync(localFilePath);
+    const timestamp = Date.now();
+    const randomId = randomBytes(8).toString("hex");
+    const filename = `${timestamp}-${randomId}.jpg`;
+    const remotePath = `seed/${filename}`;
+
+    const { error, data } = await supabase.storage
+      .from(SEED_BUCKET)
+      .upload(remotePath, fileBuffer, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error(`Storage upload failed: ${error.message}`);
+    }
+
+    const { data: publicUrl } = supabase.storage
+      .from(SEED_BUCKET)
+      .getPublicUrl(remotePath);
+
+    return publicUrl.publicUrl;
+  } catch (error) {
+    console.error(`Error uploading ${fileName}:`, error);
+    return null;
   }
 }
 
@@ -431,17 +481,28 @@ async function seed() {
   console.log(`✓ Total artworks created: ${artworks.length}`);
 
   // Create photos and associate with artworks
-  console.log("📸 Creating photos and associations...");
+  console.log("📸 Uploading photos and creating associations...");
   let photosCreated = 0;
+  const uploadedPhotoUrls: string[] = [];
+
+  // Pre-upload all images to Supabase Storage
+  console.log(`⏳ Uploading ${availableImages.length} images to Supabase Storage...`);
+  for (const image of availableImages) {
+    const publicUrl = await uploadImageToSupabase(image.filePath, image.fileName);
+    if (publicUrl) {
+      uploadedPhotoUrls.push(publicUrl);
+    }
+  }
+  console.log(`✓ Uploaded ${uploadedPhotoUrls.length} images to Supabase Storage`);
 
   // Photos for unclaimed artworks (2-3 per artwork)
   const unclaimedArtworks = artworks.filter((a) => a.claimStatus === "UNCLAIMED");
   for (const artwork of unclaimedArtworks) {
     const photoCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < photoCount; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       await prisma.photo.create({
         data: {
           artworkId: artwork.id,
@@ -460,9 +521,9 @@ async function seed() {
   for (const artwork of claimedArtworks) {
     const photoCount = 4 + Math.floor(Math.random() * 5);
     for (let i = 0; i < photoCount; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       const uploadedById = artwork.artistId
         ? allArtists.find((a) => a.id === artwork.artistId)?.id ||
           admin.id
@@ -521,12 +582,12 @@ async function seed() {
 
   // Add photos to users who only upload photos (no claims)
   console.log("📷 Adding photos for non-artist photographers...");
-  const photoCountPerPhotographer = Math.floor(availableImages.length / 10);
+  const photoCountPerPhotographer = Math.floor(uploadedPhotoUrls.length / 10);
   for (const photographer of [regularPhotographer1, regularPhotographer2]) {
     for (let i = 0; i < photoCountPerPhotographer; i++) {
-      if (imageIndex >= availableImages.length) break;
+      if (imageIndex >= uploadedPhotoUrls.length) break;
 
-      const photoUrl = availableImages[imageIndex++];
+      const photoUrl = uploadedPhotoUrls[imageIndex++];
       await prisma.photo.create({
         data: {
           userId: photographer.id,
@@ -778,6 +839,7 @@ async function seed() {
     `📊 Summary:
     - Users created: 15 (1 admin, 3 regular, 2 photographers, 2 artists no activity, 2 artists pending, 3 artists active, 2 artists full)
     - Artworks created: ${artworks.length} (5 unclaimed, 3 pending, 4 active, 5 full-activity)
+    - Images uploaded to Supabase Storage: ${uploadedPhotoUrls.length}
     - Photos created: ${photosCreated + photoCountPerPhotographer * 2}
     - Collections created: 4
     - Browse records (Artist/Country/Year): Ready for browse endpoints
