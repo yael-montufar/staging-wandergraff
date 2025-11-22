@@ -190,10 +190,11 @@ export default function GalleryEditorPage() {
   const { scheme } = useTheme();
 
   const originalGalleryOrder = (artwork.galleryImageOrder as string[]) || [];
+  const originalPublished = artwork.galleryPublished || false;
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>(
     originalGalleryOrder
   );
-  const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
+  const [isPublished, setIsPublished] = useState(originalPublished);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
   const [checkedPhotoIds, setCheckedPhotoIds] = useState<string[]>([]);
@@ -201,8 +202,10 @@ export default function GalleryEditorPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const photoIdsRef = useRef<string>(JSON.stringify(selectedPhotos));
 
-  // Check if there are unsaved changes
-  const hasChanges = JSON.stringify(selectedPhotos) !== JSON.stringify(originalGalleryOrder);
+  // Check if there are unsaved changes (either photos or publish status changed)
+  const hasChanges =
+    JSON.stringify(selectedPhotos) !== JSON.stringify(originalGalleryOrder) ||
+    isPublished !== originalPublished;
 
   // Merge loader photos with newly uploaded ones
   const artistPhotos = [...newlyUploadedPhotos, ...loaderArtistPhotos];
