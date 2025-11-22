@@ -3,7 +3,7 @@ import type { Route } from "./+types/artwork.$id.edit-gallery";
 import { Header } from "~/components/Header";
 import { Button } from "~/components/ui/Button";
 import { useTheme } from "~/lib/useTheme";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { GalleryPreview } from "~/components/GalleryPreview";
 import { PhotoPickerModal } from "~/components/PhotoPickerModal";
 
@@ -144,19 +144,7 @@ export default function GalleryEditorPage() {
     (artwork.galleryImageOrder as string[]) || []
   );
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
-  const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
-  const dragOverIndexRef = useRef<number | null>(null);
-
-  const handleTogglePhoto = (photoId: string) => {
-    setSelectedPhotos((prev) => {
-      if (prev.includes(photoId)) {
-        return prev.filter((id) => id !== photoId);
-      } else {
-        return [...prev, photoId];
-      }
-    });
-  };
 
   const handleDeletePhoto = async (photoId: string) => {
     if (!confirm("Delete this photo?")) return;
@@ -192,42 +180,6 @@ export default function GalleryEditorPage() {
     setIsPickerModalOpen(false);
   };
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, photoId: string) => {
-    setDraggedItem(photoId);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    dragOverIndexRef.current = index;
-  };
-
-  const handleDragLeave = () => {
-    dragOverIndexRef.current = null;
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
-    e.preventDefault();
-
-    if (!draggedItem) return;
-
-    const draggedIndex = selectedPhotos.indexOf(draggedItem);
-    if (draggedIndex === -1 || draggedIndex === dropIndex) {
-      setDraggedItem(null);
-      dragOverIndexRef.current = null;
-      return;
-    }
-
-    const newOrder = [...selectedPhotos];
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(dropIndex, 0, draggedItem);
-    setSelectedPhotos(newOrder);
-
-    setDraggedItem(null);
-    dragOverIndexRef.current = null;
-  };
-
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget as HTMLFormElement;
@@ -261,147 +213,43 @@ export default function GalleryEditorPage() {
             {artwork.title}
           </p>
           <p className="text-sm mt-2" style={{ color: scheme.divider }}>
-            Drag photos below to reorder, select which ones to display, and see a live preview of your gallery.
+            Drag photos to reorder, click + to add photos, or × to delete.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Photo Selection & Reordering */}
+          {/* Main Gallery Editor */}
           <div className="lg:col-span-2">
-            <div className="space-y-8">
-              {/* Photo Selection */}
-              <div>
-                <h2 className="text-xl font-bold mb-4" style={{ color: scheme.text }}>
-                  Your Photos ({artistPhotos.length})
-                </h2>
-
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {artistPhotos.map((photo) => (
-                    <div
-                      key={photo.id}
-                      className="relative rounded-lg overflow-hidden bg-gray-200 aspect-square hover:shadow-lg transition-all group"
-                      style={{
-                        opacity: selectedPhotos.includes(photo.id) ? 1 : 0.6,
-                        border: selectedPhotos.includes(photo.id)
-                          ? `3px solid ${scheme.accent}`
-                          : "3px solid transparent",
-                      }}
-                    >
-                      <img
-                        src={photo.photoUrl}
-                        alt="Photo"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                        <button
-                          onClick={() => handleTogglePhoto(photo.id)}
-                          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 hover:bg-white transition-colors"
-                          title={selectedPhotos.includes(photo.id) ? "Remove" : "Add"}
-                        >
-                          <span className="text-gray-800 font-bold text-lg">
-                            {selectedPhotos.includes(photo.id) ? "✓" : "+"}
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleDeletePhoto(photo.id)}
-                          className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/90 hover:bg-red-600 transition-colors"
-                          title="Delete photo"
-                        >
-                          <span className="text-white font-bold text-lg">×</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gallery Preview */}
-              {selectedPhotos.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold mb-4" style={{ color: scheme.text }}>
-                    Gallery Preview
-                  </h2>
-                  <div
-                    className="rounded-lg p-6"
-                    style={{ backgroundColor: scheme.secondaryBg }}
-                  >
-                    <GalleryPreview
-                      photos={previewPhotos as any[]}
-                      onAddPhotosClick={handleAddPhotosClick}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Drag & Drop Reordering */}
-              {selectedPhotos.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold mb-4" style={{ color: scheme.text }}>
-                    Reorder Photos (Drag to move)
-                  </h2>
-                  <div className="space-y-2">
-                    {selectedPhotos.map((photoId, index) => {
-                      const photo = artistPhotos.find((p) => p.id === photoId);
-                      if (!photo) return null;
-
-                      const isOver = dragOverIndexRef.current === index;
-                      const isDragging = draggedItem === photoId;
-
-                      return (
-                        <div
-                          key={photoId}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, photoId)}
-                          onDragOver={(e) => handleDragOver(e, index)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, index)}
-                          className="flex items-center gap-3 p-3 rounded-lg cursor-move transition-all"
-                          style={{
-                            backgroundColor: isDragging ? scheme.accent + "20" : isOver ? scheme.accent + "10" : scheme.secondaryBg,
-                            opacity: isDragging ? 0.5 : 1,
-                            borderLeft: isOver ? `3px solid ${scheme.accent}` : "3px solid transparent",
-                          }}
-                        >
-                          <div
-                            className="flex items-center justify-center flex-shrink-0 w-8 h-8 rounded font-bold text-sm"
-                            style={{ backgroundColor: scheme.accent, color: "white" }}
-                          >
-                            {index + 1}
-                          </div>
-                          <img
-                            src={photo.photoUrl}
-                            alt="Photo"
-                            className="w-14 h-14 rounded object-cover flex-shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium" style={{ color: scheme.text }}>
-                              Photo {index + 1}
-                            </p>
-                            <p className="text-xs" style={{ color: scheme.divider }}>
-                              {new Date(photo.uploadedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex-shrink-0 text-2xl text-gray-400">
-                            ≡
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Add Photo Button */}
-              <div>
+            {selectedPhotos.length === 0 ? (
+              <div
+                className="rounded-lg p-12 text-center"
+                style={{ backgroundColor: scheme.secondaryBg }}
+              >
+                <p className="text-lg mb-4" style={{ color: scheme.divider }}>
+                  No photos in your gallery yet
+                </p>
                 <Button
-                  variant="secondary"
-                  onClick={() => (window.location.href = `/artwork/upload?artworkId=${artwork.id}`)}
-                  className="w-full"
+                  variant="primary"
+                  onClick={handleAddPhotosClick}
+                  className="inline-flex"
                 >
-                  📸 Add More Photos
+                  + Add Photos
                 </Button>
               </div>
-            </div>
+            ) : (
+              <div
+                className="rounded-lg p-6"
+                style={{ backgroundColor: scheme.secondaryBg }}
+              >
+                <GalleryPreview
+                  photos={previewPhotos as any[]}
+                  onAddPhotosClick={handleAddPhotosClick}
+                  onReorder={(photoIds) => setSelectedPhotos(photoIds)}
+                  onDelete={handleDeletePhoto}
+                  isDraggable={true}
+                />
+              </div>
+            )}
           </div>
 
           {/* Right: Gallery Settings & Controls */}
