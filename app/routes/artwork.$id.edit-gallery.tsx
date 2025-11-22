@@ -344,6 +344,11 @@ export default function GalleryEditorPage() {
           selectedPhotoIds={selectedPhotos}
           onClose={() => setIsPickerModalOpen(false)}
           onConfirm={handleConfirmPhotos}
+          artworkId={artwork.id}
+          onPhotosUploaded={(newPhotos) => {
+            // Reload to get the new photos in the artist photos list
+            setTimeout(() => window.location.reload(), 500);
+          }}
         />
       )}
     </div>
