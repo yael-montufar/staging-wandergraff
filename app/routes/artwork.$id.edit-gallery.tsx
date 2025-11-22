@@ -142,6 +142,7 @@ export default function GalleryEditorPage() {
   const { artwork, artistPhotos, isArtist, isAdmin } = loaderData;
   const { scheme } = useTheme();
 
+  const [mounted, setMounted] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>(
     (artwork.galleryImageOrder as string[]) || []
   );
@@ -151,6 +152,11 @@ export default function GalleryEditorPage() {
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
+
+  // Prevent hydration mismatch by only rendering client-dependent content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleTogglePhoto = (photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -384,38 +390,42 @@ export default function GalleryEditorPage() {
                 <label className="block text-sm font-medium mb-3" style={{ color: scheme.text }}>
                   Layout Preset
                 </label>
-                <div className="space-y-2 mb-4">
-                  {(Object.entries(GALLERY_PRESETS) as [GalleryPresetKey, any][]).map(
-                    ([key, preset]) => (
-                      <label key={key} className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="preset"
-                          value={key}
-                          checked={currentPreset === key}
-                          onChange={(e) => setCurrentPreset(e.target.value as GalleryPresetKey)}
-                          className="w-4 h-4"
-                        />
-                        <div className="flex-1">
-                          <p style={{ color: scheme.text }} className="text-sm font-medium">
-                            {preset.name}
-                          </p>
-                          <p style={{ color: scheme.divider }} className="text-xs">
-                            {preset.description}
-                          </p>
-                        </div>
-                      </label>
-                    )
-                  )}
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleShuffle}
-                  className="w-full"
-                >
-                  🔀 Shuffle Layout
-                </Button>
+                {mounted && GALLERY_PRESETS && (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      {(Object.entries(GALLERY_PRESETS) as [GalleryPresetKey, any][]).map(
+                        ([key, preset]) => (
+                          <label key={key} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="radio"
+                              name="preset"
+                              value={key}
+                              checked={currentPreset === key}
+                              onChange={(e) => setCurrentPreset(e.target.value as GalleryPresetKey)}
+                              className="w-4 h-4"
+                            />
+                            <div className="flex-1">
+                              <p style={{ color: scheme.text }} className="text-sm font-medium">
+                                {preset.name}
+                              </p>
+                              <p style={{ color: scheme.divider }} className="text-xs">
+                                {preset.description}
+                              </p>
+                            </div>
+                          </label>
+                        )
+                      )}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleShuffle}
+                      className="w-full"
+                    >
+                      🔀 Shuffle Layout
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* Status Info */}
