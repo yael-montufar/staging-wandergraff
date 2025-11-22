@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { GalleryPreview } from "~/components/GalleryPreview";
 import { PhotoPickerModal } from "~/components/PhotoPickerModal";
 import { Toast } from "~/components/ui/Toast";
+import { useFetcher } from "react-router";
 
 export const loader: Route.LoaderFunction = async ({ request, params }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
@@ -183,8 +184,7 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
 export default function GalleryEditorPage() {
   const rootData = useRouteLoaderData("root") as any;
   const loaderData = useRouteLoaderData("routes/artwork.$id.edit-gallery") as any;
-  const actionData = useActionData<typeof action>();
-  const navigation = useNavigation();
+  const fetcher = useFetcher<typeof action>();
 
   const { artwork, artistPhotos: loaderArtistPhotos, isArtist, isAdmin } = loaderData;
   const { scheme } = useTheme();
@@ -271,14 +271,14 @@ export default function GalleryEditorPage() {
     photoIdsRef.current = JSON.stringify(selectedPhotos);
   }, [selectedPhotos]);
 
-  // Show toast when actionData updates
+  // Show toast when fetcher data updates
   useEffect(() => {
-    if (actionData?.success) {
-      setToast({ message: actionData.message || "Gallery saved successfully!", type: "success" });
-    } else if (actionData?.error) {
-      setToast({ message: actionData.error, type: "error" });
+    if (fetcher.data?.success) {
+      setToast({ message: fetcher.data.message || "Gallery saved successfully!", type: "success" });
+    } else if (fetcher.data?.error) {
+      setToast({ message: fetcher.data.error, type: "error" });
     }
-  }, [actionData]);
+  }, [fetcher.data]);
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -288,23 +288,11 @@ export default function GalleryEditorPage() {
     const formData = new FormData(formRef.current);
     formData.set("photoIds", photoIdsRef.current);
 
-    // Submit the form using fetch to capture the response
-    fetch(formRef.current.action, {
+    // Use React Router's fetcher to submit the form
+    fetcher.submit(formData, {
       method: "POST",
-      body: formData,
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setToast({ message: data.message || "Gallery saved successfully!", type: "success" });
-        } else {
-          setToast({ message: data.error || "Failed to save gallery", type: "error" });
-        }
-      })
-      .catch((error) => {
-        console.error("Error saving gallery:", error);
-        setToast({ message: "Error saving gallery", type: "error" });
-      });
+      action: formRef.current.action,
+    });
   };
 
   // Get preview photos with full data
@@ -445,10 +433,10 @@ export default function GalleryEditorPage() {
                   type="submit"
                   variant="primary"
                   className="w-full"
-                  disabled={navigation.state !== "idle" || !hasChanges}
+                  disabled={fetcher.state !== "idle" || !hasChanges}
                   title={!hasChanges ? "No changes to save" : ""}
                 >
-                  {navigation.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
+                  {fetcher.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
                 </Button>
               </form>
 
