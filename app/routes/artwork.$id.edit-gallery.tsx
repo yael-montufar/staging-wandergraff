@@ -362,13 +362,13 @@ export default function GalleryEditorPage() {
                 <p className="text-lg mb-4" style={{ color: scheme.divider }}>
                   No photos in your gallery yet
                 </p>
-                <Button
-                  variant="primary"
+                <button
                   onClick={handleAddPhotosClick}
-                  className="inline-flex"
+                  className="inline-flex px-6 py-3 rounded-lg font-medium text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: scheme.accent }}
                 >
                   + Add Photos
-                </Button>
+                </button>
               </div>
             ) : (
               <div
@@ -461,15 +461,15 @@ export default function GalleryEditorPage() {
                 className="mb-3"
               >
                 <input type="hidden" name="_intent" value="update-order" />
-                <Button
+                <button
                   type="submit"
-                  variant="primary"
-                  className="w-full"
                   disabled={fetcher.state !== "idle" || !hasChanges}
                   title={!hasChanges ? "No changes to save" : ""}
+                  className="w-full px-4 py-2 rounded-lg font-medium text-white transition-all disabled:opacity-50 hover:opacity-90"
+                  style={{ backgroundColor: scheme.accent }}
                 >
                   {fetcher.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
-                </Button>
+                </button>
               </form>
             </div>
           </div>
