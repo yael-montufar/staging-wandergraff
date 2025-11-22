@@ -1,5 +1,6 @@
 import { useTheme } from "~/lib/useTheme";
 import { useState, useMemo, useRef } from "react";
+import { convertMobileImage } from "~/lib/image-conversion.client";
 
 export interface PhotoPickerModalProps {
   allPhotos: Array<{
@@ -70,13 +71,13 @@ export function PhotoPickerModal({
   };
 
   const addFilesToUpload = (filesToAdd: File[]) => {
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB - will be compressed to <5MB
     const validFiles: File[] = [];
     const errors: string[] = [];
 
     filesToAdd.forEach((file) => {
       if (file.size > MAX_FILE_SIZE) {
-        errors.push(`${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB, max 10MB)`);
+        errors.push(`${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB, max 50MB - will be compressed)`);
       } else if (!file.type.startsWith("image/")) {
         errors.push(`${file.name} is not an image file`);
       } else {
@@ -132,22 +133,36 @@ export function PhotoPickerModal({
 
       // Upload each file sequentially
       for (let i = 0; i < uploadFiles.length; i++) {
-        const file = uploadFiles[i];
+        let file = uploadFiles[i];
         const preview = uploadPreviews[i]?.preview || "";
 
         try {
           // Update progress
           setUploadProgress((prev) => ({
             ...prev,
-            [file.name]: 0,
+            [file.name]: 10,
           }));
+
+          // Compress image before upload to avoid 413 errors
+          console.log(`[UPLOAD] Compressing ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)...`);
+          try {
+            file = await convertMobileImage(file, {
+              maxWidth: 2048,
+              maxHeight: 2048,
+              quality: 0.75, // Reduce quality to get under 5MB limit
+            });
+            console.log(`[UPLOAD] Compressed to ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+          } catch (compressionError) {
+            console.error(`[UPLOAD] Compression failed, will try original file:`, compressionError);
+            // Continue with original file if compression fails
+          }
 
           const formData = new FormData();
           formData.append("photoFile", file);
           formData.append("artworkId", artworkId);
           formData.append("isPrivateValue", "false");
 
-          console.log(`[UPLOAD] Starting upload of ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+          console.log(`[UPLOAD] Starting upload of ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
 
           const response = await fetch("/api/artwork/upload", {
             method: "POST",
@@ -159,6 +174,11 @@ export function PhotoPickerModal({
           if (!response.ok) {
             const contentType = response.headers.get("content-type");
             let errorMessage = `Failed to upload ${file.name} (${response.status} ${response.statusText})`;
+
+            // Special handling for 413 Payload Too Large
+            if (response.status === 413) {
+              errorMessage = `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Server limit is ~4.5MB. Try a smaller or lower quality image.`;
+            }
 
             if (contentType?.includes("application/json")) {
               try {
@@ -406,7 +426,7 @@ export function PhotoPickerModal({
                         Click to upload or drag and drop
                       </p>
                       <p style={{ color: scheme.divider }} className="text-sm">
-                        Multiple files accepted • PNG, JPG, HEIC up to 10MB each
+                        Multiple files accepted • PNG, JPG, HEIC • Images will be compressed
                       </p>
                     </div>
                   </label>
@@ -429,7 +449,7 @@ export function PhotoPickerModal({
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                 <div className="text-white text-center">
                                   <div className="text-sm font-medium mb-2">
-                                    {uploadProgress[item.file.name]}%
+                                    {uploadProgress[item.file.name] < 20 ? "Compressing..." : `${uploadProgress[item.file.name]}%`}
                                   </div>
                                   <div className="w-16 h-1 bg-black/30 rounded-full overflow-hidden">
                                     <div
