@@ -10,16 +10,20 @@ export interface GalleryPreviewProps {
   }>;
   onAddPhotosClick?: () => void;
   onReorder?: (photoIds: string[]) => void;
-  onDelete?: (photoId: string) => void;
+  onDeletePhotos?: (photoIds: string[]) => void;
   isDraggable?: boolean;
+  checkedPhotoIds?: Set<string>;
+  onTogglePhotoCheck?: (photoId: string) => void;
 }
 
 export function GalleryPreview({
   photos,
   onAddPhotosClick,
   onReorder,
-  onDelete,
-  isDraggable = false
+  onDeletePhotos,
+  isDraggable = false,
+  checkedPhotoIds = new Set(),
+  onTogglePhotoCheck,
 }: GalleryPreviewProps) {
   const { scheme } = useTheme();
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export function GalleryPreview({
         const isFeatured = index === 0;
         const isOver = dragOverIndexRef.current === index;
         const isDragging = draggedItem === photo.id;
+        const isChecked = checkedPhotoIds.has(photo.id);
 
         return (
           <div
@@ -107,16 +112,19 @@ export function GalleryPreview({
                   {new Date(photo.uploadedAt).toLocaleDateString()}
                 </p>
               </div>
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(photo.id)}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Delete photo"
-                >
-                  <span className="text-white font-bold text-lg">×</span>
-                </button>
-              )}
             </div>
+
+            {/* Checkbox in top-right corner */}
+            {onTogglePhotoCheck && (
+              <label className="absolute top-3 right-3 flex items-center cursor-pointer z-10">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => onTogglePhotoCheck(photo.id)}
+                  className="w-5 h-5 rounded border-2 border-white bg-white/20 checked:bg-blue-600 checked:border-blue-600 cursor-pointer accent-blue-600"
+                />
+              </label>
+            )}
           </div>
         );
       })}

@@ -146,30 +146,57 @@ export default function GalleryEditorPage() {
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
+  const [checkedPhotos, setCheckedPhotos] = useState<Set<string>>(new Set());
 
   // Merge loader photos with newly uploaded ones
   const artistPhotos = [...newlyUploadedPhotos, ...loaderArtistPhotos];
 
-  const handleDeletePhoto = async (photoId: string) => {
-    if (!confirm("Delete this photo?")) return;
+  const handleDeletePhotos = async (photoIds: string[]) => {
+    if (photoIds.length === 0) return;
+
+    const message = photoIds.length === 1
+      ? "Delete this photo?"
+      : `Delete ${photoIds.length} photos?`;
+
+    if (!confirm(message)) return;
 
     try {
-      const response = await fetch(`/api/photos/${photoId}`, {
-        method: "DELETE",
-      });
+      // Delete photos in parallel
+      const deletePromises = photoIds.map((photoId) =>
+        fetch(`/api/photos/${photoId}`, { method: "DELETE" })
+      );
 
-      if (response.ok) {
-        // Remove from selected photos if it was selected
-        setSelectedPhotos((prev) => prev.filter((id) => id !== photoId));
-        // Reload page to refresh artist photos list
-        window.location.reload();
+      const responses = await Promise.all(deletePromises);
+      const allSuccess = responses.every((res) => res.ok);
+
+      if (allSuccess) {
+        // Remove deleted photos from selected and newly uploaded
+        setSelectedPhotos((prev) =>
+          prev.filter((id) => !photoIds.includes(id))
+        );
+        setNewlyUploadedPhotos((prev) =>
+          prev.filter((photo) => !photoIds.includes(photo.id))
+        );
+        setCheckedPhotos(new Set());
       } else {
-        alert("Failed to delete photo");
+        alert("Failed to delete some photos");
       }
     } catch (error) {
-      console.error("Error deleting photo:", error);
-      alert("Error deleting photo");
+      console.error("Error deleting photos:", error);
+      alert("Error deleting photos");
     }
+  };
+
+  const handleTogglePhotoCheck = (photoId: string) => {
+    setCheckedPhotos((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId);
+      } else {
+        newSet.add(photoId);
+      }
+      return newSet;
+    });
   };
 
   const handleAddPhotosClick = () => {
@@ -217,7 +244,7 @@ export default function GalleryEditorPage() {
             {artwork.title}
           </p>
           <p className="text-sm mt-2" style={{ color: scheme.divider }}>
-            Drag photos to reorder, click + to add photos, or × to delete.
+            Drag photos to reorder, check boxes to select for bulk delete, or click + to add photos.
           </p>
         </div>
 
@@ -249,8 +276,10 @@ export default function GalleryEditorPage() {
                   photos={previewPhotos as any[]}
                   onAddPhotosClick={handleAddPhotosClick}
                   onReorder={(photoIds) => setSelectedPhotos(photoIds)}
-                  onDelete={handleDeletePhoto}
+                  onDeletePhotos={handleDeletePhotos}
                   isDraggable={true}
+                  checkedPhotoIds={checkedPhotos}
+                  onTogglePhotoCheck={handleTogglePhotoCheck}
                 />
               </div>
             )}
@@ -282,6 +311,21 @@ export default function GalleryEditorPage() {
                     : "Ready to save and publish"}
                 </p>
               </div>
+
+              {/* Bulk Delete Section */}
+              {checkedPhotos.size > 0 && (
+                <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm font-medium text-red-900 mb-3">
+                    {checkedPhotos.size} photo{checkedPhotos.size !== 1 ? 's' : ''} selected
+                  </p>
+                  <button
+                    onClick={() => handleDeletePhotos(Array.from(checkedPhotos))}
+                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    🗑️ Delete Selected
+                  </button>
+                </div>
+              )}
 
               {/* Publish Toggle */}
               <div className="mb-6">
