@@ -384,64 +384,60 @@ export default function ArtworkDetailPage() {
           </button>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Image/Gallery */}
-          <div className="lg:col-span-2">
-            <div className="space-y-8">
-                {/* Official Gallery - Masonry Layout */}
-                {officialPhotosData.length > 0 && artwork.claimStatus === "CLAIMED" && artwork.galleryPublished && (
-                  <div>
-                    <MasonryGallery
-                      photos={officialPhotosData}
-                      preset={artwork.galleryPreset || "preset_1"}
-                      onViewFullExperience={() => {
-                        // Phase 2: Open lightbox experience
-                        console.log("View full experience (Phase 2)");
-                      }}
-                    />
-                    {/* Edit Gallery Button - Only for the artist */}
-                    {artwork.claimStatus === "CLAIMED" && artwork.artistId === currentUser?.id && (
-                      <div className="flex justify-center mb-8">
-                        <a
-                          href={`/artwork/${artwork.id}/edit-gallery`}
-                          className="text-sm font-medium px-4 py-2 rounded border-2 hover:shadow-lg transition-all"
-                          style={{
-                            borderColor: scheme.accent,
-                            color: scheme.accent,
-                          }}
-                        >
-                          ✏️ Manage Gallery
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Community Gallery - 3-col Instagram grid with load more */}
-                {communityPhotos.length > 0 && (
-                  <CommunityGallery
-                    photos={communityPhotos}
-                    hasMore={communityPhotos.length < communityPhotoCount}
-                    onLoadMore={handleLoadMoreCommunity}
-                    isLoading={communityLoading}
-                  />
-                )}
-
-                {/* No photos state */}
-                {allPhotos.length === 0 && (
-                  <div className="rounded-lg bg-gray-200 h-96 flex items-center justify-center">
-                    <div className="text-center" style={{ color: scheme.divider }}>
-                      <p className="text-lg font-medium mb-2">No photos yet</p>
-                      <p className="text-sm">Be the first to upload a photo</p>
-                    </div>
-                  </div>
-                )}
+        {/* Main Content */}
+        <div className="space-y-8">
+          {/* Official Gallery - Masonry Layout */}
+          {officialPhotosData.length > 0 && artwork.claimStatus === "CLAIMED" && artwork.galleryPublished && (
+            <div>
+              <MasonryGallery
+                photos={officialPhotosData}
+                preset={artwork.galleryPreset || "preset_1"}
+                onViewFullExperience={() => {
+                  // Phase 2: Open lightbox experience
+                  console.log("View full experience (Phase 2)");
+                }}
+              />
             </div>
-          </div>
+          )}
 
-          {/* Right: Details Sidebar */}
-          <div className="lg:col-span-1">
+          {/* Manage Gallery Button - Always visible for artist with claimed artwork */}
+          {artwork.claimStatus === "CLAIMED" && artwork.artistId === currentUser?.id && (
+            <div className="flex justify-center">
+              <a
+                href={`/artwork/${artwork.id}/edit-gallery`}
+                className="text-sm font-medium px-4 py-2 rounded border-2 hover:shadow-lg transition-all"
+                style={{
+                  borderColor: scheme.accent,
+                  color: scheme.accent,
+                }}
+              >
+                ✏️ Manage Gallery
+              </a>
+            </div>
+          )}
+
+          {/* Community Gallery - 3-col Instagram grid with load more */}
+          {communityPhotos.length > 0 && (
+            <CommunityGallery
+              photos={communityPhotos}
+              hasMore={communityPhotos.length < communityPhotoCount}
+              onLoadMore={handleLoadMoreCommunity}
+              isLoading={communityLoading}
+            />
+          )}
+
+          {/* No photos state */}
+          {allPhotos.length === 0 && (
+            <div className="rounded-lg bg-gray-200 h-96 flex items-center justify-center">
+              <div className="text-center" style={{ color: scheme.divider }}>
+                <p className="text-lg font-medium mb-2">No photos yet</p>
+                <p className="text-sm">Be the first to upload a photo</p>
+              </div>
+            </div>
+          )}
+
+          {/* Details - Below all galleries */}
+          <div className="max-w-4xl">
             <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
               {/* Title and Status */}
               <div>
