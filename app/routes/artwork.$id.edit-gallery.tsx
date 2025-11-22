@@ -137,7 +137,7 @@ export default function GalleryEditorPage() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
 
-  const { artwork, artistPhotos, isArtist, isAdmin } = loaderData;
+  const { artwork, artistPhotos: loaderArtistPhotos, isArtist, isAdmin } = loaderData;
   const { scheme } = useTheme();
 
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>(
@@ -145,6 +145,10 @@ export default function GalleryEditorPage() {
   );
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
+  const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
+
+  // Merge loader photos with newly uploaded ones
+  const artistPhotos = [...newlyUploadedPhotos, ...loaderArtistPhotos];
 
   const handleDeletePhoto = async (photoId: string) => {
     if (!confirm("Delete this photo?")) return;
@@ -346,8 +350,8 @@ export default function GalleryEditorPage() {
           onConfirm={handleConfirmPhotos}
           artworkId={artwork.id}
           onPhotosUploaded={(newPhotos) => {
-            // Update artist photos list with newly uploaded photos
-            // The modal will show them in the browse tab automatically
+            // Add newly uploaded photos to the list so they can be selected
+            setNewlyUploadedPhotos((prev) => [...newPhotos, ...prev]);
           }}
         />
       )}
