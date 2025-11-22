@@ -151,7 +151,15 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
             );
           }
 
+          // Update both photo order and published status if provided
           await updateGalleryOrder(artwork.id, photoIds);
+
+          const publishedRaw = formData.get("published");
+          if (publishedRaw !== null) {
+            const published = publishedRaw === "true";
+            await toggleGalleryPublished(artwork.id, published);
+          }
+
           return json({ success: true, message: "Gallery saved successfully!" });
         }
 
@@ -290,6 +298,7 @@ export default function GalleryEditorPage() {
 
     const formData = new FormData(formRef.current);
     formData.set("photoIds", photoIdsRef.current);
+    formData.set("published", isPublished.toString());
 
     // Use React Router's fetcher to submit the form
     fetcher.submit(formData, {
