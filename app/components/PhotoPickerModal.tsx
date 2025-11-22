@@ -70,13 +70,33 @@ export function PhotoPickerModal({
   };
 
   const addFilesToUpload = (filesToAdd: File[]) => {
-    const newFiles = [...uploadFiles, ...filesToAdd];
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    filesToAdd.forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB, max 10MB)`);
+      } else if (!file.type.startsWith("image/")) {
+        errors.push(`${file.name} is not an image file`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      setUploadError(errors.join("\n"));
+    }
+
+    if (validFiles.length === 0) return;
+
+    const newFiles = [...uploadFiles, ...validFiles];
     setUploadFiles(newFiles);
 
     // Create previews for new files
     const newPreviews = [...uploadPreviews];
 
-    filesToAdd.forEach((file) => {
+    validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         newPreviews.push({
@@ -108,6 +128,7 @@ export function PhotoPickerModal({
         user: { name: string; id: string };
         uploadedAt: string;
       }> = [];
+      const errors: string[] = [];
 
       // Upload each file sequentially
       for (let i = 0; i < uploadFiles.length; i++) {
@@ -126,17 +147,45 @@ export function PhotoPickerModal({
           formData.append("artworkId", artworkId);
           formData.append("isPrivateValue", "false");
 
+          console.log(`[UPLOAD] Starting upload of ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+
           const response = await fetch("/api/artwork/upload", {
             method: "POST",
             body: formData,
           });
 
+          console.log(`[UPLOAD] Response status: ${response.status} ${response.statusText}`);
+
           if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || `Failed to upload ${file.name}`);
+            const contentType = response.headers.get("content-type");
+            let errorMessage = `Failed to upload ${file.name} (${response.status} ${response.statusText})`;
+
+            if (contentType?.includes("application/json")) {
+              try {
+                const error = await response.json();
+                errorMessage = error.error || errorMessage;
+              } catch (parseError) {
+                console.error("[UPLOAD] Failed to parse JSON error response:", parseError);
+              }
+            }
+
+            throw new Error(errorMessage);
           }
 
-          const result = await response.json();
+          const contentType = response.headers.get("content-type");
+          if (!contentType?.includes("application/json")) {
+            console.warn("[UPLOAD] Response is not JSON:", contentType);
+            throw new Error(`Server returned invalid response format (${contentType})`);
+          }
+
+          let result;
+          try {
+            result = await response.json();
+          } catch (parseError) {
+            console.error("[UPLOAD] Failed to parse JSON response:", parseError);
+            throw new Error("Failed to parse server response - file may be too large or server error");
+          }
+
           uploadedPhotoIds.push(result.photoId);
 
           // Add to new photos list
@@ -153,14 +202,17 @@ export function PhotoPickerModal({
             ...prev,
             [file.name]: 100,
           }));
+
+          console.log(`[UPLOAD] Successfully uploaded ${file.name}`);
         } catch (error) {
-          console.error(`Error uploading ${file.name}:`, error);
-          // Continue with next file even if one fails
-          setUploadError(
-            (prev) =>
-              prev + (prev ? "\n" : "") + (error instanceof Error ? error.message : `Failed to upload ${file.name}`)
-          );
+          const errorMsg = error instanceof Error ? error.message : `Failed to upload ${file.name}`;
+          console.error(`[UPLOAD] Error uploading ${file.name}:`, error);
+          errors.push(errorMsg);
         }
+      }
+
+      if (errors.length > 0) {
+        setUploadError(errors.join("\n"));
       }
 
       if (newPhotos.length > 0) {
@@ -176,16 +228,19 @@ export function PhotoPickerModal({
           onPhotosUploaded(newPhotos);
         }
 
-        // Reset upload form
-        setUploadFiles([]);
-        setUploadPreviews([]);
-        setUploadProgress({});
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
+        // Reset upload form only if all succeeded
+        if (errors.length === 0) {
+          setUploadFiles([]);
+          setUploadPreviews([]);
+          setUploadProgress({});
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+          setUploadTab(false);
         }
-        setUploadTab(false);
       }
     } catch (error) {
+      console.error("[UPLOAD] Upload batch error:", error);
       setUploadError(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setIsUploading(false);
