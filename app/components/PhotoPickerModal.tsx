@@ -33,10 +33,11 @@ export function PhotoPickerModal({
   const [tempSelected, setTempSelected] = useState<Set<string>>(new Set(selectedPhotoIds));
   const [photos, setPhotos] = useState(allPhotos);
   const [uploadTab, setUploadTab] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPreview, setUploadPreview] = useState("");
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadPreviews, setUploadPreviews] = useState<{ file: File; preview: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredPhotos = useMemo(() => {
@@ -61,68 +62,129 @@ export function PhotoPickerModal({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files) return;
 
     setUploadError("");
-    setUploadFile(file);
+    addFilesToUpload(Array.from(files));
+  };
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUploadPreview(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+  const addFilesToUpload = (filesToAdd: File[]) => {
+    const newFiles = [...uploadFiles, ...filesToAdd];
+    setUploadFiles(newFiles);
+
+    // Create previews for new files
+    const newPreviews = [...uploadPreviews];
+
+    filesToAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        newPreviews.push({
+          file,
+          preview: event.target?.result as string,
+        });
+        setUploadPreviews([...newPreviews]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeFile = (fileName: string) => {
+    setUploadFiles((prev) => prev.filter((f) => f.name !== fileName));
+    setUploadPreviews((prev) => prev.filter((p) => p.file.name !== fileName));
   };
 
   const handleUpload = async () => {
-    if (!uploadFile) return;
+    if (uploadFiles.length === 0) return;
 
     setIsUploading(true);
     setUploadError("");
 
     try {
-      const formData = new FormData();
-      formData.append("photoFile", uploadFile);
-      formData.append("artworkId", artworkId);
-      formData.append("isPrivateValue", "false");
+      const uploadedPhotoIds: string[] = [];
+      const newPhotos: Array<{
+        id: string;
+        photoUrl: string;
+        user: { name: string; id: string };
+        uploadedAt: string;
+      }> = [];
 
-      const response = await fetch("/api/artwork/upload", {
-        method: "POST",
-        body: formData,
-      });
+      // Upload each file sequentially
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        const preview = uploadPreviews[i]?.preview || "";
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Upload failed");
+        try {
+          // Update progress
+          setUploadProgress((prev) => ({
+            ...prev,
+            [file.name]: 0,
+          }));
+
+          const formData = new FormData();
+          formData.append("photoFile", file);
+          formData.append("artworkId", artworkId);
+          formData.append("isPrivateValue", "false");
+
+          const response = await fetch("/api/artwork/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || `Failed to upload ${file.name}`);
+          }
+
+          const result = await response.json();
+          uploadedPhotoIds.push(result.photoId);
+
+          // Add to new photos list
+          const newPhoto = {
+            id: result.photoId,
+            photoUrl: preview,
+            user: { name: "You", id: "current-user" },
+            uploadedAt: new Date().toISOString(),
+          };
+          newPhotos.push(newPhoto);
+
+          // Update progress
+          setUploadProgress((prev) => ({
+            ...prev,
+            [file.name]: 100,
+          }));
+        } catch (error) {
+          console.error(`Error uploading ${file.name}:`, error);
+          // Continue with next file even if one fails
+          setUploadError(
+            (prev) =>
+              prev + (prev ? "\n" : "") + (error instanceof Error ? error.message : `Failed to upload ${file.name}`)
+          );
+        }
       }
 
-      const result = await response.json();
+      if (newPhotos.length > 0) {
+        // Add new photos to the list
+        const updatedPhotos = [...newPhotos, ...photos];
+        setPhotos(updatedPhotos);
 
-      // Add new photo to the list
-      const newPhoto = {
-        id: result.photoId,
-        photoUrl: uploadPreview,
-        user: { name: "You", id: "current-user" },
-        uploadedAt: new Date().toISOString(),
-      };
+        // Auto-select uploaded photos
+        setTempSelected((prev) => new Set([...prev, ...uploadedPhotoIds]));
 
-      const updatedPhotos = [newPhoto, ...photos];
-      setPhotos(updatedPhotos);
-      setTempSelected((prev) => new Set([...prev, result.photoId]));
+        // Notify parent of new photos
+        if (onPhotosUploaded) {
+          onPhotosUploaded(newPhotos);
+        }
 
-      // Notify parent of new photos
-      if (onPhotosUploaded) {
-        onPhotosUploaded([newPhoto]);
+        // Reset upload form
+        setUploadFiles([]);
+        setUploadPreviews([]);
+        setUploadProgress({});
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        setUploadTab(false);
       }
-
-      // Reset upload form
-      setUploadFile(null);
-      setUploadPreview("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      setUploadTab(false);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -250,8 +312,8 @@ export function PhotoPickerModal({
           ) : (
             <>
               {/* Upload Tab */}
-              <div className="max-w-md mx-auto">
-                {!uploadPreview ? (
+              <div className="max-w-2xl mx-auto">
+                {uploadPreviews.length === 0 ? (
                   <label className="block">
                     <div
                       className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:opacity-75 transition-all"
@@ -268,14 +330,11 @@ export function PhotoPickerModal({
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
-                        const file = e.dataTransfer.files[0];
-                        if (file && file.type.startsWith("image/")) {
-                          setUploadFile(file);
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            setUploadPreview(event.target?.result as string);
-                          };
-                          reader.readAsDataURL(file);
+                        const files = Array.from(e.dataTransfer.files).filter((f) =>
+                          f.type.startsWith("image/")
+                        );
+                        if (files.length > 0) {
+                          addFilesToUpload(files);
                         }
                       }}
                     >
@@ -283,6 +342,7 @@ export function PhotoPickerModal({
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
+                        multiple
                         onChange={handleFileSelect}
                         className="hidden"
                       />
@@ -291,24 +351,68 @@ export function PhotoPickerModal({
                         Click to upload or drag and drop
                       </p>
                       <p style={{ color: scheme.divider }} className="text-sm">
-                        PNG, JPG, HEIC up to 10MB
+                        Multiple files accepted • PNG, JPG, HEIC up to 10MB each
                       </p>
                     </div>
                   </label>
                 ) : (
                   <div>
-                    <div className="mb-4 rounded-lg overflow-hidden bg-gray-200 aspect-square">
-                      <img
-                        src={uploadPreview}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {uploadPreviews.map((item, index) => (
+                        <div
+                          key={`${item.file.name}-${index}`}
+                          className="relative rounded-lg overflow-hidden bg-gray-200 aspect-square group"
+                        >
+                          <img
+                            src={item.preview}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+
+                          {uploadProgress[item.file.name] !== undefined &&
+                            uploadProgress[item.file.name] < 100 && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <div className="text-white text-center">
+                                  <div className="text-sm font-medium mb-2">
+                                    {uploadProgress[item.file.name]}%
+                                  </div>
+                                  <div className="w-16 h-1 bg-black/30 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full transition-all"
+                                      style={{
+                                        width: `${uploadProgress[item.file.name]}%`,
+                                        backgroundColor: scheme.accent,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                          {uploadProgress[item.file.name] === 100 && (
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                              <div className="text-white text-2xl">✓</div>
+                            </div>
+                          )}
+
+                          {!isUploading && (
+                            <button
+                              onClick={() => removeFile(item.file.name)}
+                              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex gap-2">
+
+                    <div className="flex gap-2 mb-4">
                       <button
                         onClick={() => {
-                          setUploadPreview("");
-                          setUploadFile(null);
+                          setUploadFiles([]);
+                          setUploadPreviews([]);
+                          setUploadProgress({});
                           if (fileInputRef.current) {
                             fileInputRef.current.value = "";
                           }
@@ -320,8 +424,27 @@ export function PhotoPickerModal({
                         }}
                         disabled={isUploading}
                       >
-                        Change
+                        Clear All
                       </button>
+                      <label className="flex-1">
+                        <div
+                          className="px-4 py-2 rounded-lg font-medium text-center cursor-pointer transition-all"
+                          style={{
+                            backgroundColor: scheme.primaryBg,
+                            color: scheme.text,
+                          }}
+                        >
+                          Add More
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                      </label>
                       <button
                         onClick={handleUpload}
                         className="flex-1 px-4 py-2 rounded-lg font-medium text-white transition-all"
@@ -330,14 +453,16 @@ export function PhotoPickerModal({
                         }}
                         disabled={isUploading}
                       >
-                        {isUploading ? "Uploading..." : "Upload"}
+                        {isUploading
+                          ? "Uploading..."
+                          : `Upload ${uploadFiles.length} file${uploadFiles.length !== 1 ? "s" : ""}`}
                       </button>
                     </div>
                   </div>
                 )}
 
                 {uploadError && (
-                  <div className="mt-4 p-3 rounded-lg bg-red-100 text-red-800 text-sm">
+                  <div className="mt-4 p-3 rounded-lg bg-red-100 text-red-800 text-sm whitespace-pre-wrap">
                     {uploadError}
                   </div>
                 )}
