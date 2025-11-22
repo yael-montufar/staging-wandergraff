@@ -146,7 +146,7 @@ export default function GalleryEditorPage() {
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
-  const [checkedPhotos, setCheckedPhotos] = useState<Set<string>>(new Set());
+  const [checkedPhotoIds, setCheckedPhotoIds] = useState<string[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const photoIdsRef = useRef<string>(JSON.stringify(selectedPhotos));
 
@@ -179,7 +179,7 @@ export default function GalleryEditorPage() {
         setNewlyUploadedPhotos((prev) =>
           prev.filter((photo) => !photoIds.includes(photo.id))
         );
-        setCheckedPhotos(new Set());
+        setCheckedPhotoIds([]);
       } else {
         alert("Failed to delete some photos");
       }
@@ -190,14 +190,12 @@ export default function GalleryEditorPage() {
   };
 
   const handleTogglePhotoCheck = (photoId: string) => {
-    setCheckedPhotos((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(photoId)) {
-        newSet.delete(photoId);
+    setCheckedPhotoIds((prev) => {
+      if (prev.includes(photoId)) {
+        return prev.filter((id) => id !== photoId);
       } else {
-        newSet.add(photoId);
+        return [...prev, photoId];
       }
-      return newSet;
     });
   };
 
@@ -300,7 +298,7 @@ export default function GalleryEditorPage() {
                   onReorder={(photoIds) => setSelectedPhotos(photoIds)}
                   onDeletePhotos={handleDeletePhotos}
                   isDraggable={true}
-                  checkedPhotoIds={checkedPhotos}
+                  checkedPhotoIds={checkedPhotoIds}
                   onTogglePhotoCheck={handleTogglePhotoCheck}
                 />
               </div>
@@ -335,13 +333,13 @@ export default function GalleryEditorPage() {
               </div>
 
               {/* Bulk Delete Section */}
-              {checkedPhotos.size > 0 && (
+              {checkedPhotoIds.length > 0 && (
                 <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
                   <p className="text-sm font-medium text-red-900 mb-3">
-                    {checkedPhotos.size} photo{checkedPhotos.size !== 1 ? 's' : ''} selected
+                    {checkedPhotoIds.length} photo{checkedPhotoIds.length !== 1 ? 's' : ''} selected
                   </p>
                   <button
-                    onClick={() => handleDeletePhotos(Array.from(checkedPhotos))}
+                    onClick={() => handleDeletePhotos(checkedPhotoIds)}
                     className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     🗑️ Delete Selected

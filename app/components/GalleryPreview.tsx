@@ -12,7 +12,7 @@ export interface GalleryPreviewProps {
   onReorder?: (photoIds: string[]) => void;
   onDeletePhotos?: (photoIds: string[]) => void;
   isDraggable?: boolean;
-  checkedPhotoIds?: Set<string>;
+  checkedPhotoIds?: string[];
   onTogglePhotoCheck?: (photoId: string) => void;
 }
 
@@ -22,7 +22,7 @@ export function GalleryPreview({
   onReorder,
   onDeletePhotos,
   isDraggable = false,
-  checkedPhotoIds = new Set(),
+  checkedPhotoIds = [],
   onTogglePhotoCheck,
 }: GalleryPreviewProps) {
   const { scheme } = useTheme();
@@ -81,7 +81,7 @@ export function GalleryPreview({
         const isFeatured = index === 0;
         const isOver = dragOverIndexRef.current === index;
         const isDragging = draggedItem === photo.id;
-        const isChecked = checkedPhotoIds.has(photo.id);
+        const isChecked = checkedPhotoIds.includes(photo.id);
 
         return (
           <div
