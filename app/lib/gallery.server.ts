@@ -14,6 +14,17 @@ export async function getArtistPhotosForGallery(artworkId: string, artistId: str
       artworkId,
       userId: artistId,
     },
+    select: {
+      id: true,
+      photoUrl: true,
+      uploadedAt: true,
+      user: {
+        select: {
+          name: true,
+          id: true,
+        },
+      },
+    },
     orderBy: { uploadedAt: "desc" },
   });
 }
