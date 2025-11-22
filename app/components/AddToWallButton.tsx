@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useFetcher } from "react-router";
 import { createPortal } from "react-dom";
+import { useTheme } from "~/lib/useTheme";
 
 interface Wall {
   id: string;
@@ -22,6 +23,7 @@ export function AddToWallButton({
   className = "",
   variant = "button",
 }: AddToWallButtonProps) {
+  const { scheme } = useTheme();
   const [showModal, setShowModal] = useState(false);
   const [walls, setWalls] = useState<Wall[]>([]);
   const [loading, setLoading] = useState(false);
@@ -176,7 +178,19 @@ export function AddToWallButton({
     <>
       <button
         onClick={() => setShowModal(true)}
-        className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition w-full ${className}`}
+        className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium border rounded transition w-full"
+        suppressHydrationWarning
+        style={{
+          color: scheme.text,
+          backgroundColor: scheme.primaryBg,
+          borderColor: scheme.accent,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = "0.8";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = "1";
+        }}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

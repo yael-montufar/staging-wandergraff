@@ -6,6 +6,7 @@ import { Button } from "../components/ui/Button";
 import { AddToWallButton } from "../components/AddToWallButton";
 import { MasonryGallery } from "../components/MasonryGallery";
 import { CommunityGallery } from "../components/CommunityGallery";
+import { PhotoPickerModal } from "../components/PhotoPickerModal";
 import { getArtwork, claimArtwork } from "../lib/artworks.server";
 import { getPhotosByArtwork } from "../lib/photos.server";
 import { getOfficialGalleryPhotos, getCommunityGalleryPhotos, getCommunityGalleryCount } from "../lib/gallery.server";
@@ -282,6 +283,7 @@ export default function ArtworkDetailPage() {
   const [communityPhotos, setCommunityPhotos] = useState(communityPhotosData);
   const [communityOffset, setCommunityOffset] = useState(9);
   const [communityLoading, setCommunityLoading] = useState(false);
+  const [showPhotoPickerModal, setShowPhotoPickerModal] = useState(false);
 
   // Clear success message after 3 seconds
   useEffect(() => {
@@ -866,14 +868,24 @@ export default function ArtworkDetailPage() {
                 )}
 
                 {/* Add Photo Button */}
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => (window.location.href = `/artwork/upload?artworkId=${artwork.id}`)}
-                  className="w-full"
+                <button
+                  onClick={() => setShowPhotoPickerModal(true)}
+                  className="w-full px-4 py-2 text-sm font-medium border rounded transition"
+                  suppressHydrationWarning
+                  style={{
+                    color: scheme.text,
+                    backgroundColor: scheme.primaryBg,
+                    borderColor: scheme.accent,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "0.8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
                 >
                   📸 Add Your Photo
-                </Button>
+                </button>
 
                 {/* Add to Wall Button - For signed-in users */}
                 {rootData?.user && (
@@ -916,6 +928,24 @@ export default function ArtworkDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Photo Picker Modal */}
+        {showPhotoPickerModal && (
+          <PhotoPickerModal
+            allPhotos={communityPhotosData}
+            selectedPhotoIds={[]}
+            onClose={() => setShowPhotoPickerModal(false)}
+            onConfirm={() => {
+              // Close modal after confirming - photos are uploaded, no need to confirm selection
+              setShowPhotoPickerModal(false);
+            }}
+            artworkId={artwork.id}
+            onPhotosUploaded={() => {
+              // Refresh community photos to show newly uploaded ones
+              setCommunityPhotos(communityPhotosData);
+            }}
+          />
+        )}
       </main>
     </div>
   );
