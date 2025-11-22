@@ -19,6 +19,7 @@ export interface PhotoPickerModalProps {
     user: { name: string; id: string };
     uploadedAt: string;
   }>) => void;
+  isLayerMode?: boolean;
 }
 
 export function PhotoPickerModal({
