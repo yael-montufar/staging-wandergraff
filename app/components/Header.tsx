@@ -162,15 +162,22 @@ export function Header({ user }: HeaderProps) {
           suppressHydrationWarning
           style={{ borderColor: scheme.divider }}
         >
-          <p
+          <div
             style={{
               color: scheme.accent,
-              fontSize: "clamp(1.25rem, 3vw, 3rem)",
-            }}
+              fontSize: "30px",
+              fontWeight: "700",
+              letterSpacing: "2.976px",
+              lineHeight: "45px",
+              textTransform: "uppercase",
+              "@media (max-width: 991px)": {
+                fontSize: "23px",
+              },
+            } as any}
             className="font-bold uppercase tracking-widest"
           >
-            World Wide Street Art Archive
-          </p>
+            <p>A world of wonder stories written in the streets</p>
+          </div>
         </div>
 
         {/* Search Bar, Controls, and Navigation */}

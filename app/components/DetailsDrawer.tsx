@@ -740,6 +740,49 @@ export function DetailsDrawer({
                 suppressHydrationWarning
                 style={{ borderColor: scheme.divider }}
               >
+                {/* Claim Button - Only for unclaimed artworks and artists without pending claims */}
+                {artwork.claimStatus === "UNCLAIMED" && currentUser && currentUser.role === "ARTIST" && (
+                  <button
+                    onClick={() => {
+                      fetcher.submit(
+                        { intent: "claim-artwork" },
+                        { method: "POST" }
+                      );
+                    }}
+                    disabled={fetcher.state !== "idle"}
+                    className="w-full px-4 py-2 text-sm font-medium text-white rounded transition disabled:opacity-50"
+                    suppressHydrationWarning
+                    style={{
+                      backgroundColor: scheme.accent,
+                    }}
+                  >
+                    {fetcher.state !== "idle" ? "Submitting..." : "🎨 Claim This Artwork"}
+                  </button>
+                )}
+
+                {/* Withdraw Claim Button - Only for pending claims by current user */}
+                {artwork.claimStatus === "PENDING_APPROVAL" && artwork.artistId === currentUser?.id && (
+                  <button
+                    onClick={() => {
+                      if (confirm("Are you sure you want to withdraw your claim?")) {
+                        fetcher.submit(
+                          { intent: "unclaim-artwork" },
+                          { method: "POST" }
+                        );
+                      }
+                    }}
+                    disabled={fetcher.state !== "idle"}
+                    className="w-full px-4 py-2 text-sm font-medium border rounded transition disabled:opacity-50"
+                    suppressHydrationWarning
+                    style={{
+                      borderColor: scheme.accent,
+                      color: scheme.accent,
+                    }}
+                  >
+                    {fetcher.state !== "idle" ? "Withdrawing..." : "↩️ Withdraw Claim"}
+                  </button>
+                )}
+
                 {/* Add Photo Button */}
                 <button
                   onClick={handleGoToPhotos}
@@ -775,8 +818,8 @@ export function DetailsDrawer({
                   </div>
                 )}
 
-                {/* Error Messages */}
-                {fetcher.data?.error && (
+                {/* Claim Success Message */}
+                {fetcher.data?.success && !fetcher.data?.error && (
                   <div
                     className="p-4 border text-sm rounded"
                     suppressHydrationWarning
@@ -784,6 +827,21 @@ export function DetailsDrawer({
                       borderColor: scheme.accent,
                       backgroundColor: scheme.primaryBg,
                       color: scheme.accent,
+                    }}
+                  >
+                    ✓ {fetcher.data.message || "Success"}
+                  </div>
+                )}
+
+                {/* Error Messages */}
+                {fetcher.data?.error && (
+                  <div
+                    className="p-4 border text-sm rounded"
+                    suppressHydrationWarning
+                    style={{
+                      borderColor: "rgb(220, 38, 38)",
+                      backgroundColor: "rgb(254, 226, 226)",
+                      color: "rgb(220, 38, 38)",
                     }}
                   >
                     {fetcher.data.error}
