@@ -27,6 +27,7 @@ export default [
   route("api/country/by-id", "routes/api.country.by-id.tsx"),
   route("artwork/register", "routes/artwork.register.tsx"),
   route("artwork/upload", "routes/artwork.upload.tsx"),
+  route("artwork/:id/edit-gallery", "routes/artwork.$id.edit-gallery.tsx"),
   route("artwork/:id", "routes/artwork.$id.tsx"),
   route("uploads/:filename", "routes/uploads.$filename.tsx"),
   route("user/profile", "routes/user.profile.tsx"),
