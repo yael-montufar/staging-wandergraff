@@ -346,8 +346,8 @@ export default function GalleryEditorPage() {
           onConfirm={handleConfirmPhotos}
           artworkId={artwork.id}
           onPhotosUploaded={(newPhotos) => {
-            // Reload to get the new photos in the artist photos list
-            setTimeout(() => window.location.reload(), 500);
+            // Update artist photos list with newly uploaded photos
+            // The modal will show them in the browse tab automatically
           }}
         />
       )}

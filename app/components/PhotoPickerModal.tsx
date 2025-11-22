@@ -248,16 +248,14 @@ export function PhotoPickerModal({
           onPhotosUploaded(newPhotos);
         }
 
-        // Reset upload form only if all succeeded
-        if (errors.length === 0) {
-          setUploadFiles([]);
-          setUploadPreviews([]);
-          setUploadProgress({});
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-          setUploadTab(false);
+        // Reset upload form and switch to browse tab to show uploaded photos
+        setUploadFiles([]);
+        setUploadPreviews([]);
+        setUploadProgress({});
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
+        setUploadTab(false); // Switch to browse tab
       }
     } catch (error) {
       console.error("[UPLOAD] Upload batch error:", error);
