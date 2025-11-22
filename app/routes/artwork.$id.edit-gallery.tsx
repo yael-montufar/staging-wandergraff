@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/Button";
 import { useTheme } from "~/lib/useTheme";
 import { useState, useRef } from "react";
 import { GalleryPreview } from "~/components/GalleryPreview";
+import { PhotoPickerModal } from "~/components/PhotoPickerModal";
 
 export const loader: Route.LoaderFunction = async ({ request, params }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
@@ -144,6 +145,7 @@ export default function GalleryEditorPage() {
   );
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const dragOverIndexRef = useRef<number | null>(null);
 
   const handleTogglePhoto = (photoId: string) => {
@@ -176,6 +178,18 @@ export default function GalleryEditorPage() {
       console.error("Error deleting photo:", error);
       alert("Error deleting photo");
     }
+  };
+
+  const handleAddPhotosClick = () => {
+    setIsPickerModalOpen(true);
+  };
+
+  const handleConfirmPhotos = (selectedIds: string[]) => {
+    setSelectedPhotos((prev) => {
+      const combined = new Set([...prev, ...selectedIds]);
+      return Array.from(combined);
+    });
+    setIsPickerModalOpen(false);
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, photoId: string) => {
@@ -311,7 +325,10 @@ export default function GalleryEditorPage() {
                     className="rounded-lg p-6"
                     style={{ backgroundColor: scheme.secondaryBg }}
                   >
-                    <GalleryPreview photos={previewPhotos as any[]} />
+                    <GalleryPreview
+                      photos={previewPhotos as any[]}
+                      onAddPhotosClick={handleAddPhotosClick}
+                    />
                   </div>
                 </div>
               )}
@@ -471,6 +488,16 @@ export default function GalleryEditorPage() {
           </div>
         </div>
       </main>
+
+      {/* Photo Picker Modal */}
+      {isPickerModalOpen && (
+        <PhotoPickerModal
+          allPhotos={artistPhotos}
+          selectedPhotoIds={selectedPhotos}
+          onClose={() => setIsPickerModalOpen(false)}
+          onConfirm={handleConfirmPhotos}
+        />
+      )}
     </div>
   );
 }
