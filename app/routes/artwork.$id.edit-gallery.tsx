@@ -79,65 +79,105 @@ function json(data: unknown, init?: ResponseInit) {
 }
 
 export const action: Route.ActionFunction = async ({ request, params }) => {
-  const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
-  const { getArtwork } = await import("~/lib/artworks.server");
-  const { updateGalleryOrder, toggleGalleryPublished } = await import("~/lib/gallery.server");
-  const { prismaClient } = await import("~/lib/db.server");
+  try {
+    const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
+    const { getArtwork } = await import("~/lib/artworks.server");
+    const { updateGalleryOrder, toggleGalleryPublished } = await import("~/lib/gallery.server");
+    const { prismaClient } = await import("~/lib/db.server");
 
-  const cookieHeader = request.headers.get("cookie");
-  const token = getAuthTokenFromCookie(cookieHeader);
-  const user = getUserFromToken(token);
+    const cookieHeader = request.headers.get("cookie");
+    const token = getAuthTokenFromCookie(cookieHeader);
+    const user = getUserFromToken(token);
 
-  if (!user) {
-    return json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  if (request.method === "POST") {
-    const formData = await request.formData();
-    const intent = formData.get("_intent");
-
-    try {
-      const artwork = await getArtwork(params.id!);
-      if (!artwork) {
-        return json({ error: "Artwork not found" }, { status: 404 });
-      }
-
-      const prisma = await prismaClient();
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { role: true },
-      });
-
-      const isArtist = artwork.artistId === user.id;
-      const isAdmin = dbUser?.role === "ADMIN";
-
-      if (!isArtist && !isAdmin) {
-        return json({ error: "Not authorized" }, { status: 403 });
-      }
-
-      if (intent === "update-order") {
-        const photoIds = JSON.parse(formData.get("photoIds") as string);
-        await updateGalleryOrder(artwork.id, photoIds);
-        return json({ success: true, message: "Gallery saved successfully!" });
-      }
-
-      if (intent === "toggle-publish") {
-        const published = formData.get("published") === "true";
-        await toggleGalleryPublished(artwork.id, published);
-        return json({ success: true, message: published ? "Gallery published" : "Gallery unpublished" });
-      }
-
-      return json({ error: "Unknown action" }, { status: 400 });
-    } catch (error) {
-      console.error("[GALLERY EDITOR] Error:", error);
-      return json(
-        { error: error instanceof Error ? error.message : "An error occurred" },
-        { status: 500 }
-      );
+    if (!user) {
+      return json({ error: "Not authenticated" }, { status: 401 });
     }
-  }
 
-  return json({});
+    if (request.method === "POST") {
+      let formData;
+      try {
+        formData = await request.formData();
+      } catch (formError) {
+        console.error("[GALLERY EDITOR] Form data parsing error:", formError);
+        return json(
+          { error: "Failed to parse form data" },
+          { status: 400 }
+        );
+      }
+
+      const intent = formData.get("_intent");
+
+      try {
+        const artwork = await getArtwork(params.id!);
+        if (!artwork) {
+          return json({ error: "Artwork not found" }, { status: 404 });
+        }
+
+        const prisma = await prismaClient();
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { role: true },
+        });
+
+        const isArtist = artwork.artistId === user.id;
+        const isAdmin = dbUser?.role === "ADMIN";
+
+        if (!isArtist && !isAdmin) {
+          return json({ error: "Not authorized" }, { status: 403 });
+        }
+
+        if (intent === "update-order") {
+          const photoIdsRaw = formData.get("photoIds");
+          if (!photoIdsRaw) {
+            return json({ error: "No photo IDs provided" }, { status: 400 });
+          }
+
+          let photoIds;
+          try {
+            photoIds = JSON.parse(photoIdsRaw as string);
+          } catch (parseError) {
+            console.error("[GALLERY EDITOR] JSON parse error:", parseError);
+            return json(
+              { error: "Invalid photo IDs format" },
+              { status: 400 }
+            );
+          }
+
+          if (!Array.isArray(photoIds)) {
+            return json(
+              { error: "Photo IDs must be an array" },
+              { status: 400 }
+            );
+          }
+
+          await updateGalleryOrder(artwork.id, photoIds);
+          return json({ success: true, message: "Gallery saved successfully!" });
+        }
+
+        if (intent === "toggle-publish") {
+          const published = formData.get("published") === "true";
+          await toggleGalleryPublished(artwork.id, published);
+          return json({ success: true, message: published ? "Gallery published" : "Gallery unpublished" });
+        }
+
+        return json({ error: "Unknown action" }, { status: 400 });
+      } catch (error) {
+        console.error("[GALLERY EDITOR] Action error:", error);
+        return json(
+          { error: error instanceof Error ? error.message : "An error occurred" },
+          { status: 500 }
+        );
+      }
+    }
+
+    return json({});
+  } catch (error) {
+    console.error("[GALLERY EDITOR] Unexpected error:", error);
+    return json(
+      { error: "An unexpected error occurred" },
+      { status: 500 }
+    );
+  }
 };
 
 export default function GalleryEditorPage() {
@@ -149,8 +189,9 @@ export default function GalleryEditorPage() {
   const { artwork, artistPhotos: loaderArtistPhotos, isArtist, isAdmin } = loaderData;
   const { scheme } = useTheme();
 
+  const originalGalleryOrder = (artwork.galleryImageOrder as string[]) || [];
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>(
-    (artwork.galleryImageOrder as string[]) || []
+    originalGalleryOrder
   );
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
@@ -159,6 +200,9 @@ export default function GalleryEditorPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const photoIdsRef = useRef<string>(JSON.stringify(selectedPhotos));
+
+  // Check if there are unsaved changes
+  const hasChanges = JSON.stringify(selectedPhotos) !== JSON.stringify(originalGalleryOrder);
 
   // Merge loader photos with newly uploaded ones
   const artistPhotos = [...newlyUploadedPhotos, ...loaderArtistPhotos];
@@ -401,7 +445,8 @@ export default function GalleryEditorPage() {
                   type="submit"
                   variant="primary"
                   className="w-full"
-                  disabled={navigation.state !== "idle" || selectedPhotos.length === 0}
+                  disabled={navigation.state !== "idle" || !hasChanges}
+                  title={!hasChanges ? "No changes to save" : ""}
                 >
                   {navigation.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
                 </Button>
