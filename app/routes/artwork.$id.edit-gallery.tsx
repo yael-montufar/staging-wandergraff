@@ -42,8 +42,20 @@ export const loader: Route.LoaderFunction = async ({ request, params }) => {
       return redirect(`/artwork/${artwork.id}`);
     }
 
+    // Verify artwork is claimed before allowing gallery editing
+    if (!artwork.artistId) {
+      return redirect(`/artwork/${artwork.id}`);
+    }
+
     // Get all photos uploaded by the artist for this artwork
-    const artistPhotos = await getArtistPhotosForGallery(artwork.id, artwork.artistId || "");
+    let artistPhotos: any[] = [];
+    try {
+      artistPhotos = await getArtistPhotosForGallery(artwork.id, artwork.artistId);
+    } catch (photoError) {
+      console.error("[GALLERY EDITOR] Error loading photos:", photoError);
+      // Continue without photos rather than failing completely
+      artistPhotos = [];
+    }
 
     return {
       artwork,
