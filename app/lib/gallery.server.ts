@@ -30,20 +30,15 @@ export async function getArtistPhotosForGallery(artworkId: string, artistId: str
 }
 
 /**
- * Update gallery image order and preset
+ * Update gallery image order
  */
-export async function updateGalleryOrder(
-  artworkId: string,
-  photoIds: string[],
-  preset: GalleryPresetKey = "preset_1"
-) {
+export async function updateGalleryOrder(artworkId: string, photoIds: string[]) {
   const prisma = await prismaClient();
 
   return prisma.artwork.update({
     where: { id: artworkId },
     data: {
       galleryImageOrder: photoIds,
-      galleryPreset: preset,
     },
   });
 }

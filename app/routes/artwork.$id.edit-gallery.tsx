@@ -3,9 +3,8 @@ import type { Route } from "./+types/artwork.$id.edit-gallery";
 import { Header } from "~/components/Header";
 import { Button } from "~/components/ui/Button";
 import { useTheme } from "~/lib/useTheme";
-import { useState, useEffect, useRef } from "react";
-import { GALLERY_PRESETS, type GalleryPresetKey } from "~/lib/gallery.client";
-import { MasonryGallery } from "~/components/MasonryGallery";
+import { useState, useRef } from "react";
+import { GalleryPreview } from "~/components/GalleryPreview";
 
 export const loader: Route.LoaderFunction = async ({ request, params }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
@@ -109,9 +108,7 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
 
       if (intent === "update-order") {
         const photoIds = JSON.parse(formData.get("photoIds") as string);
-        const preset = (formData.get("preset") as GalleryPresetKey) || "preset_1";
-
-        await updateGalleryOrder(artwork.id, photoIds, preset);
+        await updateGalleryOrder(artwork.id, photoIds);
         return { success: true, message: "Gallery order updated" };
       }
 
@@ -142,21 +139,12 @@ export default function GalleryEditorPage() {
   const { artwork, artistPhotos, isArtist, isAdmin } = loaderData;
   const { scheme } = useTheme();
 
-  const [mounted, setMounted] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>(
     (artwork.galleryImageOrder as string[]) || []
-  );
-  const [currentPreset, setCurrentPreset] = useState<GalleryPresetKey>(
-    (artwork.galleryPreset as GalleryPresetKey) || "preset_1"
   );
   const [isPublished, setIsPublished] = useState(artwork.galleryPublished || false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
-
-  // Prevent hydration mismatch by only rendering client-dependent content after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleTogglePhoto = (photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -166,6 +154,28 @@ export default function GalleryEditorPage() {
         return [...prev, photoId];
       }
     });
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm("Delete this photo?")) return;
+
+    try {
+      const response = await fetch(`/api/photos/${photoId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        // Remove from selected photos if it was selected
+        setSelectedPhotos((prev) => prev.filter((id) => id !== photoId));
+        // Reload page to refresh artist photos list
+        window.location.reload();
+      } else {
+        alert("Failed to delete photo");
+      }
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      alert("Error deleting photo");
+    }
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, photoId: string) => {
@@ -204,18 +214,11 @@ export default function GalleryEditorPage() {
     dragOverIndexRef.current = null;
   };
 
-  const handleShuffle = () => {
-    const presetKeys = Object.keys(GALLERY_PRESETS) as GalleryPresetKey[];
-    const randomIndex = Math.floor(Math.random() * presetKeys.length);
-    setCurrentPreset(presetKeys[randomIndex]);
-  };
-
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget as HTMLFormElement;
     const formData = new FormData(form);
     formData.set("photoIds", JSON.stringify(selectedPhotos));
-    formData.set("preset", currentPreset);
 
     const event = new Event("submit", { bubbles: true });
     Object.defineProperty(event, "target", { value: form });
@@ -260,9 +263,8 @@ export default function GalleryEditorPage() {
 
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {artistPhotos.map((photo) => (
-                    <button
+                    <div
                       key={photo.id}
-                      onClick={() => handleTogglePhoto(photo.id)}
                       className="relative rounded-lg overflow-hidden bg-gray-200 aspect-square hover:shadow-lg transition-all group"
                       style={{
                         opacity: selectedPhotos.includes(photo.id) ? 1 : 0.6,
@@ -276,12 +278,25 @@ export default function GalleryEditorPage() {
                         alt="Photo"
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <span className="text-white font-bold text-2xl">
-                          {selectedPhotos.includes(photo.id) ? "✓" : "+"}
-                        </span>
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                        <button
+                          onClick={() => handleTogglePhoto(photo.id)}
+                          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 hover:bg-white transition-colors"
+                          title={selectedPhotos.includes(photo.id) ? "Remove" : "Add"}
+                        >
+                          <span className="text-gray-800 font-bold text-lg">
+                            {selectedPhotos.includes(photo.id) ? "✓" : "+"}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/90 hover:bg-red-600 transition-colors"
+                          title="Delete photo"
+                        >
+                          <span className="text-white font-bold text-lg">×</span>
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -296,10 +311,7 @@ export default function GalleryEditorPage() {
                     className="rounded-lg p-6"
                     style={{ backgroundColor: scheme.secondaryBg }}
                   >
-                    <MasonryGallery
-                      photos={previewPhotos as any[]}
-                      preset={currentPreset}
-                    />
+                    <GalleryPreview photos={previewPhotos as any[]} />
                   </div>
                 </div>
               )}
@@ -384,49 +396,6 @@ export default function GalleryEditorPage() {
               <h2 className="text-xl font-bold mb-6" style={{ color: scheme.text }}>
                 Gallery Settings
               </h2>
-
-              {/* Layout Preset Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-3" style={{ color: scheme.text }}>
-                  Layout Preset
-                </label>
-                {mounted && GALLERY_PRESETS && (
-                  <>
-                    <div className="space-y-2 mb-4">
-                      {(Object.entries(GALLERY_PRESETS) as [GalleryPresetKey, any][]).map(
-                        ([key, preset]) => (
-                          <label key={key} className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                              type="radio"
-                              name="preset"
-                              value={key}
-                              checked={currentPreset === key}
-                              onChange={(e) => setCurrentPreset(e.target.value as GalleryPresetKey)}
-                              className="w-4 h-4"
-                            />
-                            <div className="flex-1">
-                              <p style={{ color: scheme.text }} className="text-sm font-medium">
-                                {preset.name}
-                              </p>
-                              <p style={{ color: scheme.divider }} className="text-xs">
-                                {preset.description}
-                              </p>
-                            </div>
-                          </label>
-                        )
-                      )}
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleShuffle}
-                      className="w-full"
-                    >
-                      🔀 Shuffle Layout
-                    </Button>
-                  </>
-                )}
-              </div>
 
               {/* Status Info */}
               <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: scheme.primaryBg }}>
