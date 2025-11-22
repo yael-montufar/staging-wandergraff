@@ -4,7 +4,7 @@ import { Header } from "~/components/Header";
 import { Button } from "~/components/ui/Button";
 import { useTheme } from "~/lib/useTheme";
 import { useState, useEffect, useRef } from "react";
-import { GALLERY_PRESETS, type GalleryPresetKey } from "~/lib/gallery.server";
+import { GALLERY_PRESETS, type GalleryPresetKey } from "~/lib/gallery.client";
 import { MasonryGallery } from "~/components/MasonryGallery";
 
 export const loader: Route.LoaderFunction = async ({ request, params }) => {
