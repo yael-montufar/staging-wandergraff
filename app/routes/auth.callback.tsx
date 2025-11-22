@@ -45,20 +45,37 @@ export const loader: LoaderFunction = async ({ request }) => {
         const supabaseUser = data.session.user;
         const prisma = await prismaClient();
 
-        // Use Supabase user ID as the primary key
-        await prisma.user.upsert({
-          where: { id: supabaseUser.id },
-          update: {
-            email: supabaseUser.email,
-            name: supabaseUser.user_metadata?.name || supabaseUser.email,
-          },
-          create: {
-            id: supabaseUser.id,
-            email: supabaseUser.email,
-            name: supabaseUser.user_metadata?.name || supabaseUser.email,
-            role: "REGULAR_USER",
-          },
+        // First, check if user exists by email (preserves admin/artist roles from pre-created users)
+        const existingUserByEmail = await prisma.user.findUnique({
+          where: { email: supabaseUser.email },
         });
+
+        if (existingUserByEmail) {
+          // User already exists by email (pre-created as admin, artist, etc.)
+          // Delete old record and create new one with Supabase ID, preserving the role
+          await prisma.user.delete({
+            where: { email: supabaseUser.email },
+          });
+
+          await prisma.user.create({
+            data: {
+              id: supabaseUser.id,
+              email: supabaseUser.email,
+              name: supabaseUser.user_metadata?.name || supabaseUser.email,
+              role: existingUserByEmail.role, // Preserve the original role (ADMIN, ARTIST, etc.)
+            },
+          });
+        } else {
+          // New user - create with Supabase ID and REGULAR_USER role
+          await prisma.user.create({
+            data: {
+              id: supabaseUser.id,
+              email: supabaseUser.email,
+              name: supabaseUser.user_metadata?.name || supabaseUser.email,
+              role: "REGULAR_USER",
+            },
+          });
+        }
       } catch (dbError) {
         console.error("[CALLBACK] Error creating/updating user in database:", dbError);
         // Continue with auth even if user creation fails

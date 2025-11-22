@@ -12,7 +12,9 @@
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:seed": "tsx prisma/seed.ts",
     "db:wipe": "tsx prisma/wipe.ts",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "admin:create": "tsx scripts/create-admin.ts",
+    "admin:check": "tsx scripts/check-admin.ts"
   },
   "dependencies": {
     "@react-router/node": "^7.9.4",
