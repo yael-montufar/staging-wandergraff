@@ -392,10 +392,6 @@ export default function ArtworkDetailPage() {
               <MasonryGallery
                 photos={officialPhotosData}
                 preset={artwork.galleryPreset || "preset_1"}
-                onViewFullExperience={() => {
-                  // Phase 2: Open lightbox experience
-                  console.log("View full experience (Phase 2)");
-                }}
               />
             </div>
           )}

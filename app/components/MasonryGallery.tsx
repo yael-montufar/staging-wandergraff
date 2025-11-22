@@ -34,7 +34,6 @@ export interface MasonryGalleryProps {
     uploadedAt: string;
   }>;
   preset: GalleryPresetKey;
-  onViewFullExperience?: () => void;
 }
 
 interface ColumnLayout {
@@ -55,7 +54,7 @@ const COLUMN_PATTERNS: Array<{ width: number; spans: number[] }> = [
   { width: 228, spans: [1, 1, 1] }, // 3 single items
 ];
 
-export function MasonryGallery({ photos, preset, onViewFullExperience }: MasonryGalleryProps) {
+export function MasonryGallery({ photos, preset }: MasonryGalleryProps) {
   const { scheme } = useTheme();
 
   if (photos.length === 0) {
@@ -135,7 +134,7 @@ export function MasonryGallery({ photos, preset, onViewFullExperience }: Masonry
                 width: `${item.width}px`,
               }}
             >
-              <div className="relative w-full h-full rounded-lg overflow-hidden bg-gray-200 group cursor-pointer hover:shadow-lg transition-shadow">
+              <div className="relative w-full h-full rounded-lg overflow-hidden bg-gray-200 group cursor-default hover:shadow-lg transition-shadow">
                 <img
                   src={item.photo.photoUrl}
                   alt="Gallery"
@@ -159,21 +158,6 @@ export function MasonryGallery({ photos, preset, onViewFullExperience }: Masonry
         </div>
       </div>
 
-      {onViewFullExperience && (
-        <div className="flex justify-center">
-          <button
-            onClick={onViewFullExperience}
-            className="px-6 py-2 rounded-lg font-medium transition-all"
-            suppressHydrationWarning
-            style={{
-              backgroundColor: scheme.accent,
-              color: "white",
-            }}
-          >
-            View Full Experience
-          </button>
-        </div>
-      )}
     </div>
   );
 }
