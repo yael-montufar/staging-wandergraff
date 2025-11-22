@@ -1,5 +1,5 @@
 import { useTheme } from "~/lib/useTheme";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { convertMobileImage } from "~/lib/image-conversion.client";
 
 export interface PhotoPickerModalProps {
@@ -40,6 +40,20 @@ export function PhotoPickerModal({
   const [uploadError, setUploadError] = useState("");
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const filteredPhotos = useMemo(() => {
     if (!searchQuery.trim()) return photos;
@@ -266,26 +280,71 @@ export function PhotoPickerModal({
   };
 
   const handleConfirm = () => {
-    onConfirm(Array.from(tempSelected));
+    setIsOpen(false);
+    setTimeout(() => {
+      onConfirm(Array.from(tempSelected));
+    }, 300);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <>
+      {/* Dark Overlay */}
       <div
-        className="rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        style={{ backgroundColor: scheme.secondaryBg }}
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          isOpen ? "opacity-100 bg-black/50" : "opacity-0 pointer-events-none bg-black/0"
+        }`}
+        onClick={handleBackdropClick}
+      />
+
+      {/* Drawer Container - Right on Desktop, Bottom on Mobile */}
+      <div
+        className={`fixed z-50 shadow-xl flex flex-col
+          transition-all duration-300 ease-in-out
+          bottom-0 left-0 right-0 md:right-0 md:bottom-0 md:left-auto md:top-0
+          max-h-[90vh] md:max-h-screen md:w-96 lg:w-[28rem]
+          rounded-t-2xl md:rounded-none
+        `}
+        style={{
+          backgroundColor: scheme.secondaryBg,
+          transform: isOpen
+            ? "translateX(0) translateY(0)"
+            : isMobile
+              ? "translateY(100%)"
+              : "translateX(100%)",
+        }}
       >
+        {/* Handle bar for mobile */}
+        <div className="md:hidden flex justify-center py-2 px-4">
+          <div
+            className="w-12 h-1 rounded-full"
+            style={{ backgroundColor: scheme.divider }}
+          />
+        </div>
+
         {/* Header */}
         <div
-          className="flex items-center justify-between p-6 border-b"
+          className="flex items-center justify-between px-6 py-4 border-b md:px-6 md:py-6"
           style={{ borderColor: scheme.divider }}
         >
           <h2 className="text-xl font-bold" style={{ color: scheme.text }}>
             Select file
           </h2>
           <button
-            onClick={onClose}
-            className="text-2xl font-light"
+            onClick={handleClose}
+            className="text-2xl font-light hover:opacity-70 transition-opacity"
             style={{ color: scheme.divider }}
           >
             ×
@@ -318,7 +377,7 @@ export function PhotoPickerModal({
 
         {/* Search Bar - Browse Tab */}
         {!uploadTab && (
-          <div className="p-4 border-b" style={{ borderColor: scheme.divider }}>
+          <div className="px-4 py-4 border-b md:px-6" style={{ borderColor: scheme.divider }}>
             <input
               type="text"
               placeholder="Search files"
@@ -335,11 +394,11 @@ export function PhotoPickerModal({
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {!uploadTab ? (
             <>
               {/* Browse Tab - Photos Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-3 md:gap-4">
                 {filteredPhotos.map((photo) => {
                   const isSelected = tempSelected.has(photo.id);
                   return (
@@ -385,11 +444,11 @@ export function PhotoPickerModal({
           ) : (
             <>
               {/* Upload Tab */}
-              <div className="max-w-2xl mx-auto">
+              <div className="max-w-2xl">
                 {uploadPreviews.length === 0 ? (
                   <label className="block">
                     <div
-                      className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:opacity-75 transition-all"
+                      className="border-2 border-dashed rounded-lg p-8 md:p-12 text-center cursor-pointer hover:opacity-75 transition-all"
                       style={{
                         borderColor: scheme.accent,
                         backgroundColor: scheme.accent + "10",
@@ -420,17 +479,17 @@ export function PhotoPickerModal({
                         className="hidden"
                       />
                       <div className="text-3xl mb-2">📷</div>
-                      <p className="font-medium mb-1" style={{ color: scheme.text }}>
+                      <p className="font-medium mb-1 text-sm md:text-base" style={{ color: scheme.text }}>
                         Click to upload or drag and drop
                       </p>
-                      <p style={{ color: scheme.divider }} className="text-sm">
+                      <p style={{ color: scheme.divider }} className="text-xs md:text-sm">
                         Multiple files accepted • PNG, JPG, HEIC • Images will be compressed
                       </p>
                     </div>
                   </label>
                 ) : (
                   <div>
-                    <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                       {uploadPreviews.map((item, index) => (
                         <div
                           key={`${item.file.name}-${index}`}
@@ -480,7 +539,7 @@ export function PhotoPickerModal({
                       ))}
                     </div>
 
-                    <div className="flex gap-2 mb-4">
+                    <div className="flex gap-2 mb-4 text-sm md:text-base">
                       <button
                         onClick={() => {
                           setUploadFiles([]);
@@ -547,12 +606,12 @@ export function PhotoPickerModal({
         {/* Footer */}
         {!uploadTab && (
           <div
-            className="flex items-center justify-end gap-3 p-6 border-t"
+            className="flex items-center justify-end gap-3 p-4 border-t md:p-6"
             style={{ borderColor: scheme.divider }}
           >
             <button
-              onClick={onClose}
-              className="px-6 py-2 rounded-lg font-medium transition-all"
+              onClick={handleClose}
+              className="px-6 py-2 rounded-lg font-medium transition-all text-sm md:text-base"
               style={{
                 backgroundColor: scheme.primaryBg,
                 color: scheme.text,
@@ -563,7 +622,7 @@ export function PhotoPickerModal({
             <button
               onClick={handleConfirm}
               disabled={tempSelected.size === 0}
-              className="px-6 py-2 rounded-lg font-medium text-white transition-all disabled:opacity-50"
+              className="px-6 py-2 rounded-lg font-medium text-white transition-all disabled:opacity-50 text-sm md:text-base"
               style={{
                 backgroundColor: scheme.accent,
               }}
@@ -573,6 +632,6 @@ export function PhotoPickerModal({
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
