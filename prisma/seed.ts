@@ -5,10 +5,9 @@ import { resolve } from "path";
 config({ path: resolve(process.cwd(), ".env") });
 
 import { prismaClient } from "../app/lib/db.server";
+import { getOrUploadSeedImages } from "../app/lib/storage.server";
 import fs from "fs";
 import path from "path";
-import { createClient } from "@supabase/supabase-js";
-import { randomBytes } from "crypto";
 
 // Locations with real coordinates from different cities for street art
 const locations = [
@@ -58,79 +57,6 @@ interface Location {
   country: string;
 }
 
-async function getOrUploadSeedImages(): Promise<string[]> {
-  try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error(
-        "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables"
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const SEED_BUCKET = "artwork-photos";
-
-    // Check if seed photos already exist
-    const { data: existingFiles, error: listError } = await supabase.storage
-      .from(SEED_BUCKET)
-      .list("seed", { limit: 500 });
-
-    if (!listError && existingFiles && existingFiles.length > 0) {
-      console.log(
-        `✓ Found ${existingFiles.length} existing seed images in storage`
-      );
-      // Return existing image URLs
-      return existingFiles.map((file) => {
-        const { data: publicUrl } = supabase.storage
-          .from(SEED_BUCKET)
-          .getPublicUrl(`seed/${file.name}`);
-        return publicUrl.publicUrl;
-      });
-    }
-
-    // Upload seed images
-    console.log("⏳ Uploading 181 images to Supabase Storage...");
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    const files = fs.readdirSync(uploadsDir).filter((f) => f.endsWith(".jpg"));
-
-    const uploadedUrls: string[] = [];
-
-    for (const fileName of files) {
-      const localFilePath = path.join(uploadsDir, fileName);
-      const fileBuffer = fs.readFileSync(localFilePath);
-      const timestamp = Date.now();
-      const randomId = randomBytes(8).toString("hex");
-      const filename = `${timestamp}-${randomId}.jpg`;
-      const remotePath = `seed/${filename}`;
-
-      const { error, data } = await supabase.storage
-        .from(SEED_BUCKET)
-        .upload(remotePath, fileBuffer, {
-          contentType: "image/jpeg",
-          upsert: false,
-        });
-
-      if (error) {
-        console.error(`Error uploading ${fileName}:`, error);
-        continue;
-      }
-
-      const { data: publicUrl } = supabase.storage
-        .from(SEED_BUCKET)
-        .getPublicUrl(remotePath);
-
-      uploadedUrls.push(publicUrl.publicUrl);
-    }
-
-    console.log(`✓ Uploaded ${uploadedUrls.length} images to Supabase Storage`);
-    return uploadedUrls;
-  } catch (error) {
-    console.error("Error managing seed images:", error);
-    return [];
-  }
-}
 
 function getRandomItems<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
@@ -538,10 +464,12 @@ async function seed() {
     }
   }
 
-  // Photos for claimed artworks (4-8 per artwork)
+  // Photos for claimed artworks (8-12 per artwork for rich official galleries)
   const claimedArtworks = artworks.filter((a) => a.claimStatus === "CLAIMED");
   for (const artwork of claimedArtworks) {
-    const photoCount = 4 + Math.floor(Math.random() * 5);
+    const photoCount = 8 + Math.floor(Math.random() * 5);
+    const officialPhotoIds: string[] = [];
+
     for (let i = 0; i < photoCount; i++) {
       if (imageIndex >= uploadedPhotoUrls.length) break;
 
@@ -561,42 +489,42 @@ async function seed() {
         },
       });
       photosCreated++;
+      officialPhotoIds.push(photo.id);
+    }
 
-      // Create gallery entry for claimed artwork
-      const galleryType = Math.random() > 0.7 ? "OFFICIAL" : "DEFAULT";
-      const gallery = await prisma.gallery.findFirst({
-        where: {
+    // Create OFFICIAL gallery with all photos for claimed artworks
+    if (officialPhotoIds.length > 0) {
+      const officialGallery = await prisma.gallery.create({
+        data: {
           artworkId: artwork.id,
-          type: galleryType,
+          type: "OFFICIAL",
+          createdByArtistId: artwork.artistId || undefined,
         },
       });
 
-      if (!gallery) {
-        await prisma.gallery.create({
-          data: {
-            artworkId: artwork.id,
-            type: galleryType,
-            createdByArtistId: artwork.artistId || undefined,
-          },
-        });
-      }
-
-      const galleryRecord = await prisma.gallery.findFirst({
-        where: {
-          artworkId: artwork.id,
-          type: galleryType,
-        },
-      });
-
-      if (galleryRecord) {
+      // Add all photos to the official gallery
+      for (let i = 0; i < officialPhotoIds.length; i++) {
         await prisma.galleryPhoto.create({
           data: {
-            galleryId: galleryRecord.id,
-            photoId: photo.id,
+            galleryId: officialGallery.id,
+            photoId: officialPhotoIds[i],
             order: i,
           },
         });
       }
+
+      // Update artwork with galleryImageOrder and publish the gallery
+      const presetNames = ["preset_1", "preset_2", "preset_3", "preset_4", "preset_5"];
+      const randomPreset = presetNames[Math.floor(Math.random() * presetNames.length)];
+
+      await prisma.artwork.update({
+        where: { id: artwork.id },
+        data: {
+          galleryImageOrder: officialPhotoIds,
+          galleryPreset: randomPreset,
+          galleryPublished: true,
+        },
+      });
     }
   }
 

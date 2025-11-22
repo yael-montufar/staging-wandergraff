@@ -113,6 +113,99 @@ fetch("/api/auth/create-user", {
 
 ---
 
+## Asset Storage & Environment Strategy
+
+### Decision: Environment-Aware Storage for Seed Images (Local vs Supabase)
+**Date:** Local development setup phase
+**Status:** ✅ Implemented
+
+**Problem:**
+- Staging/production require images in Supabase Storage for reliable access
+- Local development with docker-in-docker needs fast iteration without uploading to cloud
+- Previously, staging seed script uploads removed local `public/uploads` references, breaking local dev
+- Need to support both workflows with a single codebase
+
+**Solution:**
+- Added `STORAGE_MODE` environment variable to control image source
+- `STORAGE_MODE=LOCAL`: Seed script serves images directly from `public/uploads` directory
+- `STORAGE_MODE=SUPABASE`: Seed script uploads images to Supabase Storage (staging/production)
+- Single `getOrUploadSeedImages()` function handles both modes via new `app/lib/storage.server.ts` utility
+
+**Implementation Details:**
+- New utility: `app/lib/storage.server.ts` with:
+  - `getStorageMode()`: Reads STORAGE_MODE from environment, defaults to SUPABASE
+  - `getOrUploadSeedImages()`: Routes to LOCAL or SUPABASE logic based on mode
+  - `getLocalSeedImages()`: Returns `/uploads/{filename}` URLs for local files
+  - `getSupabaseSeedImages()`: Existing logic, uploads to Supabase storage
+- Updated seed script: `prisma/seed.ts` imports and uses the new utility
+- No changes needed to components; photo URLs work the same in both modes
+
+**Environment Configuration:**
+```env
+# Local development (docker-in-docker)
+STORAGE_MODE=LOCAL
+
+# Staging/production (cloud-based)
+STORAGE_MODE=SUPABASE
+```
+
+**Workflow:**
+1. **Local dev:** Run `supabase start` (docker-in-docker), set `STORAGE_MODE=LOCAL` in `.env`, run `npm run db:seed`
+   - Seed script reads images from `public/uploads`
+   - Stores URLs as `/uploads/{filename}` in database
+   - Static server serves files directly
+2. **Staging:** Swap env to staging config, set `STORAGE_MODE=SUPABASE`, run `npm run db:seed`
+   - Seed script uploads images to Supabase Storage
+   - Database stores full Supabase public URLs
+   - Images served from cloud storage
+
+**Trade-offs:**
+- ✅ Supports both local and staging workflows with single codebase
+- ✅ No artificial uploads during local development
+- ✅ Staging behavior is default (prioritized as "production-like")
+- ⚠️ Requires correct `STORAGE_MODE` setting when switching environments
+- ⚠️ Local dev images won't persist if `public/uploads` is deleted
+
+**Files Affected:**
+- `app/lib/storage.server.ts` (NEW)
+- `prisma/seed.ts` (updated to use new utility)
+- `.env`, `.env.development.ref`, `.env.tmp`, `.env.staging.ref` (added STORAGE_MODE)
+
+---
+
+### Decision: Rich Official Gallery Seeding for Claimed Artworks
+**Date:** Local development setup phase
+**Status:** ✅ Implemented
+
+**Problem:**
+- Claimed artworks with minimal official gallery photos didn't demonstrate the masonry gallery UI properly
+- Gallery editor page needed substantive data to test layout presets and image ordering
+- Artwork page needed enough images to showcase the masonry layout visually
+
+**Solution:**
+- Updated seed script to create 8-12 photos per claimed artwork (instead of 4-8 mixed across galleries)
+- All photos go directly to OFFICIAL gallery, ensuring published galleries display
+- `galleryImageOrder` is populated with all photo IDs in order
+- `galleryPublished` is set to true automatically
+- Random masonry preset (preset_1 through preset_5) is assigned to each claimed artwork
+
+**Implementation:**
+- Claimed artworks: 8-12 unique photos each, all in OFFICIAL gallery
+- Unclaimed artworks: 2-3 photos each, community gallery only (no official gallery)
+- Gallery photos stored in order in `galleryImageOrder` JSON array
+- Each artwork displays masonry with 5 different layout preset options seeded randomly
+
+**Trade-offs:**
+- ✅ Rich visual demonstration of masonry galleries
+- ✅ Gallery editor has substantive data to work with
+- ⚠️ Uses more seed images (8-12 per claimed artwork vs 4-8 total)
+- ⚠️ Seed process takes slightly longer to create and link gallery photos
+
+**Files Affected:**
+- `prisma/seed.ts` (updated photo creation and gallery population)
+
+---
+
 ## Terminology & User-Facing Language
 
 ### Decision: "Pin a Mural" as Core Concept
@@ -1206,6 +1299,119 @@ The prepared statement issue revealed a critical insight: different deployments 
 
 ---
 
+## Gallery Curation Interface
+
+### Decision: Drag-and-Drop Gallery Curation with Live Preview
+**Date:** Current Session (Session 12)
+**Status:** ✅ Implemented
+
+**Problem:**
+- Artists needed an intuitive way to curate their official gallery
+- Previous interface used arrow buttons for reordering (clunky for many photos)
+- No real-time preview of how gallery would appear to visitors
+- Missing visual feedback during interactions
+
+**Solution:**
+- Implemented full drag-and-drop interface using HTML5 Drag and Drop API
+- Added live gallery preview showing exactly how gallery appears to visitors
+- Created sticky settings panel with layout presets
+- Integrated with existing gallery infrastructure
+
+**Key Features:**
+
+1. **Drag-and-Drop Reordering**
+   - HTML5 native API (no external dependencies)
+   - Visual feedback: semi-transparent during drag, highlight drop zones
+   - Smooth reordering with numbered positions
+   - Drag handle indicator (≡) for clarity
+
+2. **Photo Selection**
+   - Click to select/deselect photos
+   - Grid layout (3-4 columns) shows all artist's photos
+   - Visual feedback: full opacity when selected, 60% when not
+   - Checkmark indicator for selected items
+
+3. **Live Gallery Preview**
+   - Real-time preview using existing MasonryGallery component
+   - Shows exactly how gallery appears to visitors
+   - Updates as photos selected/reordered/preset changed
+   - Horizontal scrolling layout matching production
+
+4. **Gallery Settings Panel**
+   - 5 layout preset options (asymmetry, flowing, grid, hero, dynamic)
+   - Shuffle button for random preset selection
+   - Selection counter with contextual guidance
+   - Publish/unpublish toggle
+   - Sticky positioning for constant visibility
+   - Success/error message feedback
+
+5. **Photo Management**
+   - Thumbnails with upload dates
+   - "Add More Photos" button links to upload flow
+   - Numbered position indicators
+   - Clean list with photo previews
+
+**Implementation Details:**
+
+- **File:** `app/routes/artwork.$id.edit-gallery.tsx`
+- **Layout:** 2-column on desktop (left: photos/preview/reorder, right: settings)
+- **Responsive:** Single column on mobile with full functionality
+- **State Management:** React hooks for local state (no server fetches during editing)
+- **Save Mechanism:** Form submission with hidden fields containing photo IDs and preset
+- **Styling:** Theme-aware colors, Tailwind CSS, smooth transitions
+
+**Data Flow:**
+1. Page loads with existing gallery data from Artwork
+2. Artist selects photos from their uploads
+3. Artist drags photos to reorder
+4. Artist chooses layout preset
+5. Artist sees live preview updating in real-time
+6. Artist clicks "Save Gallery" button
+7. Form submission via POST to `/artwork/:id/edit-gallery` action
+8. Server updates `galleryImageOrder` (JSON array) and `galleryPreset`
+9. Success message shows, gallery persists
+
+**Access Control:**
+- Route only accessible to claiming artist or admins
+- Loader checks authorization, redirects non-artists to artwork detail page
+- Action validates artist/admin status before saving
+
+**Benefits:**
+- ✅ Intuitive drag-and-drop UX (matches Shopify, Pinterest, similar tools)
+- ✅ Live preview reduces guesswork (see final result before saving)
+- ✅ No external dependencies (HTML5 native API)
+- ✅ Smooth, responsive experience on all devices
+- ✅ Integrates seamlessly with existing gallery system
+- ✅ Professional appearance with visual feedback
+- ✅ Sticky settings panel improves usability on long lists
+
+**Trade-offs:**
+- Gained: Professional UX, live preview, intuitive interaction
+- Lost: None - completely additive enhancement
+
+**Technical Decisions:**
+- Used HTML5 Drag and Drop API instead of library (no extra dependencies)
+- Used `dragOverIndexRef` (ref instead of state) for drop zone tracking (avoids re-renders)
+- Reordering happens immediately on drop (no debouncing needed)
+- MasonryGallery component renders read-only (no click handlers on preview)
+
+**Related Features:**
+- Gallery presets: 5 different masonry layouts (defined in gallery.server.ts)
+- Photo upload: Already existed, linked from curation page
+- Gallery publication: Toggle controls visibility on artwork detail page
+- Official gallery: Only visible when artwork is CLAIMED and gallery is PUBLISHED
+
+**Future Enhancements:**
+- Batch operations (select all, deselect all, select by date range)
+- Photo editing/cropping within curation interface
+- Gallery templates/themes
+- Photo captions or descriptions in gallery
+- Scheduled gallery publishing
+- Gallery versioning/history
+- A/B testing different orderings
+
+---
+
 ## Document History
 
 | Version | Date | Key Changes |
@@ -1228,6 +1434,7 @@ The prepared statement issue revealed a critical insight: different deployments 
 | 2.5 | Session 10 | **Artwork Registration Flow Future Decision**: Proposed requiring reference photo for pin registration to prevent duplicates. Documented future verification system approaches (photo-based, location-based, hybrid). Deferred implementation pending further design. |
 | 2.6 | Session 11 | **Database Migration to Neon**: Switched from Supabase to Neon serverless PostgreSQL to resolve prepared statement pooling errors. All migrations applied successfully. |
 | 2.7 | Session 11 | **Codebase Cleanup**: Removed unused `exifr` and `@types/pg` dependencies, moved `createPhotoPreview` to image-conversion library, verified authorization checks on admin routes. |
+| 2.8 | Session 12 | **Gallery Curation Interface**: Implemented drag-and-drop reordering with live preview, gallery settings panel, photo selection interface. Enhanced artist gallery management with professional UX. |
 
 ---
 

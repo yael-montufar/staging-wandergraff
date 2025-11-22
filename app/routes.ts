@@ -45,4 +45,5 @@ export default [
   route("years/:year", "routes/years.$year.tsx"),
   route("map", "routes/map.tsx"),
   route("test/header", "routes/test.header.tsx"),
+  route("test/artwork", "routes/test.artwork.tsx"),
 ] satisfies RouteConfig;

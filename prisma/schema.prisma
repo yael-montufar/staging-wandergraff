@@ -112,6 +112,9 @@ model Artwork {
   artistId      String?
   countryId     String?  // Location-based country from geocoding
   rejectedAt    DateTime?  // Timestamp of when claim was last rejected (for cooldown enforcement)
+  galleryPublished Boolean @default(false)  // Whether artist has published their official gallery
+  galleryPreset String @default("preset_1")  // Name of the masonry layout preset
+  galleryImageOrder Json @default("[]")  // Array of photo IDs in display order: ["photoId1", "photoId2", ...]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

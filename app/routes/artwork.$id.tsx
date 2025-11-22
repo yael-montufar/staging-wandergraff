@@ -4,8 +4,11 @@ import type { Route } from "./+types/artwork.$id";
 import { Header } from "../components/Header";
 import { Button } from "../components/ui/Button";
 import { AddToWallButton } from "../components/AddToWallButton";
+import { MasonryGallery } from "../components/MasonryGallery";
+import { CommunityGallery } from "../components/CommunityGallery";
 import { getArtwork, claimArtwork } from "../lib/artworks.server";
 import { getPhotosByArtwork } from "../lib/photos.server";
+import { getOfficialGalleryPhotos, getCommunityGalleryPhotos, getCommunityGalleryCount } from "../lib/gallery.server";
 import { getAuthTokenFromCookie, getUserFromToken } from "../lib/auth.server";
 import { prismaClient } from "../lib/db.server";
 import { useTheme } from "../lib/useTheme";
@@ -24,8 +27,6 @@ export const loader: Route.LoaderFunction = async ({ params, request }) => {
       throw new Error("Artwork not found");
     }
 
-    const photos = await getPhotosByArtwork(id, { includePrivate: false });
-
     // Get current user and their pending claims count
     const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
     const { getPendingClaimsCount } = await import("~/lib/artworks.server");
@@ -39,7 +40,28 @@ export const loader: Route.LoaderFunction = async ({ params, request }) => {
       userPendingClaimsCount = await getPendingClaimsCount(user.id);
     }
 
-    return { artwork, photos, currentUser: user, userPendingClaimsCount };
+    // Get official gallery photos (if published and claimed)
+    let officialPhotos: any[] = [];
+    if (artwork.claimStatus === "CLAIMED" && artwork.galleryPublished) {
+      officialPhotos = await getOfficialGalleryPhotos(id);
+    }
+
+    // Get initial community gallery photos (first 9)
+    const communityPhotos = await getCommunityGalleryPhotos(id, 0, 9);
+    const communityPhotoCount = await getCommunityGalleryCount(id);
+
+    // Get old photos structure for backward compatibility
+    const allPhotos = await getPhotosByArtwork(id, { includePrivate: false });
+
+    return {
+      artwork,
+      allPhotos,
+      officialPhotos,
+      communityPhotos,
+      communityPhotoCount,
+      currentUser: user,
+      userPendingClaimsCount,
+    };
   } catch (error) {
     console.error("[ARTWORK] Error loading artwork:", error);
     throw error;
@@ -243,7 +265,10 @@ export default function ArtworkDetailPage() {
   const rootData = useRouteLoaderData("root") as any;
   const loaderData = useRouteLoaderData("routes/artwork.$id") as any;
   const artwork = loaderData?.artwork;
-  const photos = loaderData?.photos ?? [];
+  const allPhotos = loaderData?.allPhotos ?? [];
+  const officialPhotosData = loaderData?.officialPhotos ?? [];
+  const communityPhotosData = loaderData?.communityPhotos ?? [];
+  const communityPhotoCount = loaderData?.communityPhotoCount ?? 0;
   const currentUser = loaderData?.currentUser;
   const userPendingClaimsCount = loaderData?.userPendingClaimsCount ?? 0;
   const fetcher = useFetcher<any>();
@@ -254,6 +279,9 @@ export default function ArtworkDetailPage() {
   const [editDescription, setEditDescription] = useState(artwork?.description || "");
   const [editAddress, setEditAddress] = useState(artwork?.address || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [communityPhotos, setCommunityPhotos] = useState(communityPhotosData);
+  const [communityOffset, setCommunityOffset] = useState(9);
+  const [communityLoading, setCommunityLoading] = useState(false);
 
   // Clear success message after 3 seconds
   useEffect(() => {
@@ -272,6 +300,22 @@ export default function ArtworkDetailPage() {
       revalidator.revalidate();
     }
   }, [fetcher.data, revalidator]);
+
+  const handleLoadMoreCommunity = async () => {
+    setCommunityLoading(true);
+    try {
+      const response = await fetch(`/api/gallery.community-photos?artworkId=${artwork.id}&skip=${communityOffset}&take=9`);
+      const data = await response.json();
+      if (data.photos) {
+        setCommunityPhotos([...communityPhotos, ...data.photos]);
+        setCommunityOffset(communityOffset + 9);
+      }
+    } catch (error) {
+      console.error("[GALLERY] Error loading more photos:", error);
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
 
   if (!artwork) {
     return (
@@ -314,15 +358,8 @@ export default function ArtworkDetailPage() {
     CLAIMED: "bg-green-100 text-green-800",
   }[displayStatus || "UNCLAIMED"];
 
-  // Separate photos into official (artist-curated) and community
-  const officialPhotos = artwork.claimStatus === "CLAIMED"
-    ? photos.filter((photo: any) => photo.userId === artwork.artist?.id)
-    : [];
-  const communityPhotos = photos.filter((photo: any) =>
-    artwork.claimStatus !== "CLAIMED" || photo.userId !== artwork.artist?.id
-  );
-
-  const primaryPhoto = officialPhotos[0] || communityPhotos[0];
+  // Get primary photo (featured image)
+  const primaryPhoto = officialPhotosData[0] || communityPhotos[0] || allPhotos[0];
 
   return (
     <div
@@ -351,102 +388,56 @@ export default function ArtworkDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left: Image/Gallery */}
           <div className="lg:col-span-2">
-            {primaryPhoto ? (
-              <div className="space-y-6">
-                {/* Featured Photo */}
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <img
-                    src={primaryPhoto.photoUrl}
-                    alt={artwork.title}
-                    className="w-full h-96 object-cover"
-                  />
-                </div>
-
-                {/* Official Gallery - Artist Curated */}
-                {officialPhotos.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-sm font-semibold text-gray-900">Official Gallery</span>
-                      <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                        Curated by Artist
-                      </span>
-                    </div>
-                    <div className="space-y-3">
-                      {officialPhotos.map((photo: any) => (
-                        <div
-                          key={photo.id}
-                          className="rounded overflow-hidden bg-gray-100 hover:shadow-md transition"
+            <div className="space-y-8">
+                {/* Official Gallery - Masonry Layout */}
+                {officialPhotosData.length > 0 && artwork.claimStatus === "CLAIMED" && artwork.galleryPublished && (
+                  <div>
+                    <MasonryGallery
+                      photos={officialPhotosData}
+                      preset={artwork.galleryPreset || "preset_1"}
+                      onViewFullExperience={() => {
+                        // Phase 2: Open lightbox experience
+                        console.log("View full experience (Phase 2)");
+                      }}
+                    />
+                    {/* Edit Gallery Button - Only for the artist */}
+                    {artwork.claimStatus === "CLAIMED" && artwork.artistId === currentUser?.id && (
+                      <div className="flex justify-center mb-8">
+                        <a
+                          href={`/artwork/${artwork.id}/edit-gallery`}
+                          className="text-sm font-medium px-4 py-2 rounded border-2 hover:shadow-lg transition-all"
+                          style={{
+                            borderColor: scheme.accent,
+                            color: scheme.accent,
+                          }}
                         >
-                          <img
-                            src={photo.photoUrl}
-                            alt="Official"
-                            className="w-full h-48 object-cover hover:opacity-75 cursor-pointer transition"
-                          />
-                          <div className="p-2 bg-white">
-                            <p className="text-xs text-gray-600">
-                              Uploaded by{" "}
-                              <a
-                                href={`/user/${photo.user.id}`}
-                                className="text-blue-600 hover:text-blue-700 font-medium"
-                              >
-                                {photo.user.name || photo.user.email}
-                              </a>
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(photo.uploadedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                          ✏️ Manage Gallery
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Community Gallery */}
+                {/* Community Gallery - 3-col Instagram grid with load more */}
                 {communityPhotos.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-md p-4">
-                    <p className="text-sm font-semibold text-gray-900 mb-3">
-                      Community Photos ({communityPhotos.length})
-                    </p>
-                    <div className="space-y-3">
-                      {communityPhotos.map((photo: any) => (
-                        <div
-                          key={photo.id}
-                          className="rounded overflow-hidden bg-gray-100 hover:shadow-md transition"
-                        >
-                          <img
-                            src={photo.photoUrl}
-                            alt="Community"
-                            className="w-full h-48 object-cover hover:opacity-75 cursor-pointer transition"
-                          />
-                          <div className="p-2 bg-white">
-                            <p className="text-xs text-gray-600">
-                              Uploaded by{" "}
-                              <a
-                                href={`/user/${photo.user.id}`}
-                                className="text-blue-600 hover:text-blue-700 font-medium"
-                              >
-                                {photo.user.name || photo.user.email}
-                              </a>
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(photo.uploadedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                  <CommunityGallery
+                    photos={communityPhotos}
+                    hasMore={communityPhotos.length < communityPhotoCount}
+                    onLoadMore={handleLoadMoreCommunity}
+                    isLoading={communityLoading}
+                  />
+                )}
+
+                {/* No photos state */}
+                {allPhotos.length === 0 && (
+                  <div className="rounded-lg bg-gray-200 h-96 flex items-center justify-center">
+                    <div className="text-center" style={{ color: scheme.divider }}>
+                      <p className="text-lg font-medium mb-2">No photos yet</p>
+                      <p className="text-sm">Be the first to upload a photo</p>
                     </div>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="bg-gray-200 rounded-lg shadow-md h-96 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <p className="text-lg">No photos yet</p>
-                  <p className="text-sm mt-2">Be the first to upload a photo</p>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Right: Details Sidebar */}
@@ -505,15 +496,15 @@ export default function ArtworkDetailPage() {
 
               {/* Photo Galleries Info */}
               <div>
-                <p className="text-sm text-gray-600 mb-2">Photo Galleries</p>
+                <p className="text-sm text-gray-600 mb-2">Photos</p>
                 <div className="space-y-1 text-sm">
-                  {officialPhotos.length > 0 && (
-                    <p className="text-gray-700"><span className="font-semibold">{officialPhotos.length}</span> official {officialPhotos.length === 1 ? "photo" : "photos"}</p>
+                  {officialPhotosData.length > 0 && (
+                    <p className="text-gray-700"><span className="font-semibold">{officialPhotosData.length}</span> official {officialPhotosData.length === 1 ? "photo" : "photos"}</p>
                   )}
                   {communityPhotos.length > 0 && (
                     <p className="text-gray-700"><span className="font-semibold">{communityPhotos.length}</span> community {communityPhotos.length === 1 ? "photo" : "photos"}</p>
                   )}
-                  {photos.length === 0 && (
+                  {allPhotos.length === 0 && (
                     <p className="text-gray-500">No photos yet</p>
                   )}
                 </div>

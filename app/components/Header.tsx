@@ -188,6 +188,7 @@ export function Header({ user }: HeaderProps) {
                   placeholder="Search (Ctrl+K)"
                   onClick={() => setIsSearchOpen(true)}
                   readOnly
+                  suppressHydrationWarning
                   style={{
                     backgroundColor: scheme.primaryBg,
                     color: scheme.text,
