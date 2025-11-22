@@ -3,7 +3,7 @@ import type { Route } from "./+types/artwork.$id.edit-gallery";
 import { Header } from "~/components/Header";
 import { Button } from "~/components/ui/Button";
 import { useTheme } from "~/lib/useTheme";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { GalleryPreview } from "~/components/GalleryPreview";
 import { PhotoPickerModal } from "~/components/PhotoPickerModal";
 
@@ -147,6 +147,8 @@ export default function GalleryEditorPage() {
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
   const [checkedPhotos, setCheckedPhotos] = useState<Set<string>>(new Set());
+  const formRef = useRef<HTMLFormElement>(null);
+  const photoIdsRef = useRef<string>(JSON.stringify(selectedPhotos));
 
   // Merge loader photos with newly uploaded ones
   const artistPhotos = [...newlyUploadedPhotos, ...loaderArtistPhotos];
@@ -211,15 +213,35 @@ export default function GalleryEditorPage() {
     setIsPickerModalOpen(false);
   };
 
+  // Update the ref whenever selectedPhotos changes
+  useEffect(() => {
+    photoIdsRef.current = JSON.stringify(selectedPhotos);
+  }, [selectedPhotos]);
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget as HTMLFormElement;
-    const formData = new FormData(form);
-    formData.set("photoIds", JSON.stringify(selectedPhotos));
 
-    const event = new Event("submit", { bubbles: true });
-    Object.defineProperty(event, "target", { value: form });
-    form.dispatchEvent(event);
+    if (!formRef.current) return;
+
+    const formData = new FormData(formRef.current);
+    formData.set("photoIds", photoIdsRef.current);
+
+    try {
+      const response = await fetch(formRef.current.action, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Success
+        alert("Gallery saved successfully!");
+      } else {
+        alert("Failed to save gallery");
+      }
+    } catch (error) {
+      console.error("Error saving gallery:", error);
+      alert("Error saving gallery");
+    }
   };
 
   // Get preview photos with full data
@@ -360,7 +382,13 @@ export default function GalleryEditorPage() {
               )}
 
               {/* Save Button */}
-              <Form method="POST" onSubmit={handleSave} className="mb-3">
+              <form
+                ref={formRef}
+                action={`/artwork/${artwork.id}/edit-gallery`}
+                method="POST"
+                onSubmit={handleSave}
+                className="mb-3"
+              >
                 <input type="hidden" name="_intent" value="update-order" />
                 <Button
                   type="submit"
@@ -370,7 +398,7 @@ export default function GalleryEditorPage() {
                 >
                   {navigation.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
                 </Button>
-              </Form>
+              </form>
 
               {/* Back Link */}
               <a
