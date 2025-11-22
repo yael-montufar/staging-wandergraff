@@ -433,23 +433,48 @@ export default function ArtworkDetailPage() {
           )}
 
           {/* Details - Below all galleries */}
-          <div className="max-w-4xl">
-            <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+          <div className="max-w-4xl" suppressHydrationWarning>
+            <div
+              className="border p-8 space-y-8"
+              style={{
+                borderColor: scheme.divider,
+                backgroundColor: scheme.primaryBg,
+              }}
+            >
               {/* Title and Status */}
               <div>
-                <div className="flex items-start justify-between mb-2">
-                  <h1 className="text-2xl font-bold text-gray-900 flex-1">{artwork.title}</h1>
+                <div className="flex items-start justify-between mb-4">
+                  <h1
+                    className="text-3xl font-bold flex-1"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
+                    {artwork.title}
+                  </h1>
                   {artwork.claimStatus === "CLAIMED" && artwork.artistId === rootData?.user?.id && !isEditing && (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="ml-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      className="ml-4 text-sm font-medium px-3 py-1 transition-colors hover:opacity-80"
+                      suppressHydrationWarning
+                      style={{
+                        color: scheme.accent,
+                        borderBottom: `2px solid ${scheme.accent}`,
+                      }}
                     >
                       Edit
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${statusColor}`}>
+                  <span
+                    className="text-xs font-semibold px-3 py-1 uppercase tracking-wide"
+                    suppressHydrationWarning
+                    style={{
+                      color: scheme.accent,
+                      borderColor: scheme.accent,
+                      border: `1px solid ${scheme.accent}`,
+                    }}
+                  >
                     {statusLabel}
                   </span>
                 </div>
@@ -457,9 +482,23 @@ export default function ArtworkDetailPage() {
 
               {/* Artist Info */}
               {artwork.artist && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Artist</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                <div
+                  className="border-t pt-6"
+                  suppressHydrationWarning
+                  style={{ borderColor: scheme.divider }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2 uppercase tracking-widest"
+                    suppressHydrationWarning
+                    style={{ color: scheme.divider }}
+                  >
+                    Artist
+                  </p>
+                  <p
+                    className="text-lg font-semibold"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
                     {artwork.artist.name || artwork.artist.email}
                   </p>
                 </div>
@@ -467,46 +506,108 @@ export default function ArtworkDetailPage() {
 
               {/* Year Created */}
               {artwork.yearCreated ? (
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Year Created</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                <div
+                  className="border-t pt-6"
+                  suppressHydrationWarning
+                  style={{ borderColor: scheme.divider }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2 uppercase tracking-widest"
+                    suppressHydrationWarning
+                    style={{ color: scheme.divider }}
+                  >
+                    Year Created
+                  </p>
+                  <p
+                    className="text-lg font-semibold"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
                     {artwork.yearCreated}
                   </p>
                 </div>
               ) : null}
 
               {/* Location */}
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Location</p>
-                <p className="text-sm font-mono text-gray-900">
+              <div
+                className="border-t pt-6"
+                suppressHydrationWarning
+                style={{ borderColor: scheme.divider }}
+              >
+                <p
+                  className="text-xs font-semibold mb-2 uppercase tracking-widest"
+                  suppressHydrationWarning
+                  style={{ color: scheme.divider }}
+                >
+                  Location
+                </p>
+                <p
+                  className="text-sm font-mono mb-2"
+                  suppressHydrationWarning
+                  style={{ color: scheme.text }}
+                >
                   {artwork.latitude.toFixed(6)}, {artwork.longitude.toFixed(6)}
                 </p>
                 {artwork.address && (
-                  <p className="text-sm text-gray-700 mt-1">{artwork.address}</p>
+                  <p
+                    className="text-sm"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
+                    {artwork.address}
+                  </p>
                 )}
               </div>
 
               {/* Photo Galleries Info */}
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Photos</p>
+              <div
+                className="border-t pt-6"
+                suppressHydrationWarning
+                style={{ borderColor: scheme.divider }}
+              >
+                <p
+                  className="text-xs font-semibold mb-3 uppercase tracking-widest"
+                  suppressHydrationWarning
+                  style={{ color: scheme.divider }}
+                >
+                  Photos
+                </p>
                 <div className="space-y-1 text-sm">
                   {officialPhotosData.length > 0 && (
-                    <p className="text-gray-700"><span className="font-semibold">{officialPhotosData.length}</span> official {officialPhotosData.length === 1 ? "photo" : "photos"}</p>
+                    <p suppressHydrationWarning style={{ color: scheme.text }}>
+                      <span className="font-semibold">{officialPhotosData.length}</span> official {officialPhotosData.length === 1 ? "photo" : "photos"}
+                    </p>
                   )}
                   {communityPhotos.length > 0 && (
-                    <p className="text-gray-700"><span className="font-semibold">{communityPhotos.length}</span> community {communityPhotos.length === 1 ? "photo" : "photos"}</p>
+                    <p suppressHydrationWarning style={{ color: scheme.text }}>
+                      <span className="font-semibold">{communityPhotos.length}</span> community {communityPhotos.length === 1 ? "photo" : "photos"}
+                    </p>
                   )}
                   {allPhotos.length === 0 && (
-                    <p className="text-gray-500">No photos yet</p>
+                    <p suppressHydrationWarning style={{ color: scheme.divider }}>No photos yet</p>
                   )}
                 </div>
               </div>
 
               {/* Description */}
               {artwork.description && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Description</p>
-                  <p className="text-gray-700 text-sm leading-relaxed">
+                <div
+                  className="border-t pt-6"
+                  suppressHydrationWarning
+                  style={{ borderColor: scheme.divider }}
+                >
+                  <p
+                    className="text-xs font-semibold mb-2 uppercase tracking-widest"
+                    suppressHydrationWarning
+                    style={{ color: scheme.divider }}
+                  >
+                    Description
+                  </p>
+                  <p
+                    className="text-sm leading-relaxed"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
                     {artwork.description}
                   </p>
                 </div>
@@ -514,27 +615,61 @@ export default function ArtworkDetailPage() {
 
               {/* Unified Edit Form */}
               {isEditing && artwork.claimStatus === "CLAIMED" && artwork.artistId === rootData?.user?.id && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Artwork Details</h3>
-                  <fetcher.Form method="post" className="space-y-4">
+                <div
+                  className="border-t pt-8"
+                  suppressHydrationWarning
+                  style={{ borderColor: scheme.divider }}
+                >
+                  <h3
+                    className="text-lg font-semibold mb-6 uppercase tracking-wide"
+                    suppressHydrationWarning
+                    style={{ color: scheme.text }}
+                  >
+                    Edit Details
+                  </h3>
+                  <fetcher.Form method="post" className="space-y-6">
                     <input type="hidden" name="intent" value="update-metadata" />
 
                     {/* Title */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                      <label
+                        className="block text-xs font-semibold mb-2 uppercase tracking-widest"
+                        suppressHydrationWarning
+                        style={{ color: scheme.divider }}
+                      >
+                        Title *
+                      </label>
                       <input
                         type="text"
                         name="title"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         placeholder="Artwork title"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border transition-colors focus:outline-none"
+                        suppressHydrationWarning
+                        style={{
+                          borderColor: scheme.divider,
+                          color: scheme.text,
+                          backgroundColor: scheme.primaryBg,
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = scheme.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = scheme.divider;
+                        }}
                       />
                     </div>
 
                     {/* Year Created */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Year Created</label>
+                      <label
+                        className="block text-xs font-semibold mb-2 uppercase tracking-widest"
+                        suppressHydrationWarning
+                        style={{ color: scheme.divider }}
+                      >
+                        Year Created
+                      </label>
                       <input
                         type="number"
                         name="year"
@@ -543,43 +678,104 @@ export default function ArtworkDetailPage() {
                         placeholder="e.g., 2023"
                         min="1900"
                         max={new Date().getFullYear()}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border transition-colors focus:outline-none"
+                        suppressHydrationWarning
+                        style={{
+                          borderColor: scheme.divider,
+                          color: scheme.text,
+                          backgroundColor: scheme.primaryBg,
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = scheme.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = scheme.divider;
+                        }}
                       />
                     </div>
 
                     {/* Address */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                      <label
+                        className="block text-xs font-semibold mb-2 uppercase tracking-widest"
+                        suppressHydrationWarning
+                        style={{ color: scheme.divider }}
+                      >
+                        Address
+                      </label>
                       <input
                         type="text"
                         name="address"
                         value={editAddress}
                         onChange={(e) => setEditAddress(e.target.value)}
                         placeholder="e.g., 120 West 1st Street, Los Angeles, CA"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        className="w-full px-3 py-2 border text-sm transition-colors focus:outline-none"
+                        suppressHydrationWarning
+                        style={{
+                          borderColor: scheme.divider,
+                          color: scheme.text,
+                          backgroundColor: scheme.primaryBg,
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = scheme.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = scheme.divider;
+                        }}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Changing the address will update the location coordinates</p>
+                      <p
+                        className="text-xs mt-2"
+                        suppressHydrationWarning
+                        style={{ color: scheme.divider }}
+                      >
+                        Changing the address will update the location coordinates
+                      </p>
                     </div>
 
                     {/* Description */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <label
+                        className="block text-xs font-semibold mb-2 uppercase tracking-widest"
+                        suppressHydrationWarning
+                        style={{ color: scheme.divider }}
+                      >
+                        Description
+                      </label>
                       <textarea
                         name="description"
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                         placeholder="Add a description..."
                         rows={4}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border transition-colors focus:outline-none resize-none"
+                        suppressHydrationWarning
+                        style={{
+                          borderColor: scheme.divider,
+                          color: scheme.text,
+                          backgroundColor: scheme.primaryBg,
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = scheme.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = scheme.divider;
+                        }}
                       />
                     </div>
 
                     {/* Save/Cancel Buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-4 pt-4">
                       <button
                         type="submit"
                         disabled={fetcher.state !== "idle"}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+                        suppressHydrationWarning
+                        style={{
+                          color: "white",
+                          backgroundColor: scheme.accent,
+                          opacity: fetcher.state !== "idle" ? 0.6 : 1,
+                          cursor: fetcher.state !== "idle" ? "not-allowed" : "pointer",
+                        }}
                       >
                         {fetcher.state !== "idle" ? "Saving..." : "Save Changes"}
                       </button>
@@ -592,7 +788,12 @@ export default function ArtworkDetailPage() {
                           setEditDescription(artwork.description || "");
                           setEditAddress(artwork.address || "");
                         }}
-                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+                        className="flex-1 px-4 py-2 border text-sm font-medium transition-colors hover:opacity-80"
+                        suppressHydrationWarning
+                        style={{
+                          borderColor: scheme.divider,
+                          color: scheme.text,
+                        }}
                       >
                         Cancel
                       </button>
@@ -602,7 +803,11 @@ export default function ArtworkDetailPage() {
               )}
 
               {/* Actions */}
-              <div className="pt-4 border-t space-y-2">
+              <div
+                className="border-t pt-8 space-y-3"
+                suppressHydrationWarning
+                style={{ borderColor: scheme.divider }}
+              >
                 {/* Claim Button - Only for ARTIST role on UNCLAIMED artworks */}
                 {rootData?.user && rootData?.user?.role === "ARTIST" && displayStatus === "UNCLAIMED" && (
                   <fetcher.Form method="post" className="w-full">
@@ -621,10 +826,24 @@ export default function ArtworkDetailPage() {
 
                 {/* Claim Status Messages - Only for claim maker */}
                 {isClaimMaker && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                    <p className="font-semibold">Claim Pending Admin Review</p>
-                    <p className="text-xs mt-1">We're verifying your claim. You'll be able to edit the artwork details once approved.</p>
-                    <p className="text-xs mt-2 text-yellow-700">
+                  <div
+                    className="p-4 border text-sm"
+                    suppressHydrationWarning
+                    style={{
+                      borderColor: scheme.accent,
+                      backgroundColor: scheme.primaryBg,
+                      color: scheme.text,
+                    }}
+                  >
+                    <p
+                      className="font-semibold"
+                      suppressHydrationWarning
+                      style={{ color: scheme.accent }}
+                    >
+                      Claim Pending Admin Review
+                    </p>
+                    <p className="text-xs mt-2">We're verifying your claim. You'll be able to edit the artwork details once approved.</p>
+                    <p className="text-xs mt-2">
                       You have <span className="font-semibold">{userPendingClaimsCount}</span> of 3 allowed pending claims.
                     </p>
                   </div>
@@ -666,14 +885,30 @@ export default function ArtworkDetailPage() {
 
                 {/* Save Success Message - Displayed after edit form closes */}
               {saveSuccess && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                <div
+                  className="p-4 border text-sm"
+                  suppressHydrationWarning
+                  style={{
+                    borderColor: scheme.accent,
+                    backgroundColor: scheme.primaryBg,
+                    color: scheme.accent,
+                  }}
+                >
                   ✓ Artwork updated successfully
                 </div>
               )}
 
               {/* Error Messages */}
               {fetcher.data?.error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                <div
+                  className="p-4 border text-sm"
+                  suppressHydrationWarning
+                  style={{
+                    borderColor: scheme.accent,
+                    backgroundColor: scheme.primaryBg,
+                    color: scheme.accent,
+                  }}
+                >
                   {fetcher.data.error}
                 </div>
               )}
