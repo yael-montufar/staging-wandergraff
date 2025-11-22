@@ -4,3 +4,4 @@ export { Card, CardHeader, CardBody, CardFooter, type CardProps } from "./Card";
 export { LoadingSpinner, type LoadingSpinnerProps } from "./LoadingSpinner";
 export { ErrorMessage, type ErrorMessageProps } from "./ErrorMessage";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
+export { Toast, type ToastProps } from "./Toast";

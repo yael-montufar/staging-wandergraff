@@ -6,6 +6,7 @@ import { useTheme } from "~/lib/useTheme";
 import { useState, useRef, useEffect } from "react";
 import { GalleryPreview } from "~/components/GalleryPreview";
 import { PhotoPickerModal } from "~/components/PhotoPickerModal";
+import { Toast } from "~/components/ui/Toast";
 
 export const loader: Route.LoaderFunction = async ({ request, params }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
@@ -70,6 +71,13 @@ export const loader: Route.LoaderFunction = async ({ request, params }) => {
   }
 };
 
+function json(data: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(data), {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+}
+
 export const action: Route.ActionFunction = async ({ request, params }) => {
   const { getAuthTokenFromCookie, getUserFromToken } = await import("~/lib/auth.server");
   const { getArtwork } = await import("~/lib/artworks.server");
@@ -81,7 +89,7 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
   const user = getUserFromToken(token);
 
   if (!user) {
-    return { error: "Not authenticated" };
+    return json({ error: "Not authenticated" }, { status: 401 });
   }
 
   if (request.method === "POST") {
@@ -91,7 +99,7 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
     try {
       const artwork = await getArtwork(params.id!);
       if (!artwork) {
-        return { error: "Artwork not found" };
+        return json({ error: "Artwork not found" }, { status: 404 });
       }
 
       const prisma = await prismaClient();
@@ -104,31 +112,32 @@ export const action: Route.ActionFunction = async ({ request, params }) => {
       const isAdmin = dbUser?.role === "ADMIN";
 
       if (!isArtist && !isAdmin) {
-        return { error: "Not authorized" };
+        return json({ error: "Not authorized" }, { status: 403 });
       }
 
       if (intent === "update-order") {
         const photoIds = JSON.parse(formData.get("photoIds") as string);
         await updateGalleryOrder(artwork.id, photoIds);
-        return { success: true, message: "Gallery order updated" };
+        return json({ success: true, message: "Gallery saved successfully!" });
       }
 
       if (intent === "toggle-publish") {
         const published = formData.get("published") === "true";
         await toggleGalleryPublished(artwork.id, published);
-        return { success: true, message: published ? "Gallery published" : "Gallery unpublished" };
+        return json({ success: true, message: published ? "Gallery published" : "Gallery unpublished" });
       }
 
-      return { error: "Unknown action" };
+      return json({ error: "Unknown action" }, { status: 400 });
     } catch (error) {
       console.error("[GALLERY EDITOR] Error:", error);
-      return {
-        error: error instanceof Error ? error.message : "An error occurred",
-      };
+      return json(
+        { error: error instanceof Error ? error.message : "An error occurred" },
+        { status: 500 }
+      );
     }
   }
 
-  return {};
+  return json({});
 };
 
 export default function GalleryEditorPage() {
@@ -147,6 +156,7 @@ export default function GalleryEditorPage() {
   const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
   const [newlyUploadedPhotos, setNewlyUploadedPhotos] = useState<typeof loaderArtistPhotos>([]);
   const [checkedPhotoIds, setCheckedPhotoIds] = useState<string[]>([]);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const photoIdsRef = useRef<string>(JSON.stringify(selectedPhotos));
 
@@ -180,12 +190,13 @@ export default function GalleryEditorPage() {
           prev.filter((photo) => !photoIds.includes(photo.id))
         );
         setCheckedPhotoIds([]);
+        setToast({ message: `${photoIds.length} photo${photoIds.length !== 1 ? 's' : ''} deleted`, type: "success" });
       } else {
-        alert("Failed to delete some photos");
+        setToast({ message: "Failed to delete some photos", type: "error" });
       }
     } catch (error) {
       console.error("Error deleting photos:", error);
-      alert("Error deleting photos");
+      setToast({ message: "Error deleting photos", type: "error" });
     }
   };
 
@@ -216,7 +227,16 @@ export default function GalleryEditorPage() {
     photoIdsRef.current = JSON.stringify(selectedPhotos);
   }, [selectedPhotos]);
 
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Show toast when actionData updates
+  useEffect(() => {
+    if (actionData?.success) {
+      setToast({ message: actionData.message || "Gallery saved successfully!", type: "success" });
+    } else if (actionData?.error) {
+      setToast({ message: actionData.error, type: "error" });
+    }
+  }, [actionData]);
+
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!formRef.current) return;
@@ -224,22 +244,23 @@ export default function GalleryEditorPage() {
     const formData = new FormData(formRef.current);
     formData.set("photoIds", photoIdsRef.current);
 
-    try {
-      const response = await fetch(formRef.current.action, {
-        method: "POST",
-        body: formData,
+    // Submit the form using fetch to capture the response
+    fetch(formRef.current.action, {
+      method: "POST",
+      body: formData,
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setToast({ message: data.message || "Gallery saved successfully!", type: "success" });
+        } else {
+          setToast({ message: data.error || "Failed to save gallery", type: "error" });
+        }
+      })
+      .catch((error) => {
+        console.error("Error saving gallery:", error);
+        setToast({ message: "Error saving gallery", type: "error" });
       });
-
-      if (response.ok) {
-        // Success
-        alert("Gallery saved successfully!");
-      } else {
-        alert("Failed to save gallery");
-      }
-    } catch (error) {
-      console.error("Error saving gallery:", error);
-      alert("Error saving gallery");
-    }
   };
 
   // Get preview photos with full data
@@ -367,18 +388,6 @@ export default function GalleryEditorPage() {
                 </label>
               </div>
 
-              {/* Success/Error Messages */}
-              {actionData?.success && (
-                <div className="mb-4 p-3 rounded-lg bg-green-100 text-green-800 text-sm">
-                  ✓ {actionData.message}
-                </div>
-              )}
-              {actionData?.error && (
-                <div className="mb-4 p-3 rounded-lg bg-red-100 text-red-800 text-sm">
-                  ✗ {actionData.error}
-                </div>
-              )}
-
               {/* Save Button */}
               <form
                 ref={formRef}
@@ -423,6 +432,15 @@ export default function GalleryEditorPage() {
             // Add newly uploaded photos to the list so they can be selected
             setNewlyUploadedPhotos((prev) => [...newPhotos, ...prev]);
           }}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>
