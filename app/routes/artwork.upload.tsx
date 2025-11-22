@@ -141,12 +141,19 @@ export default function UploadPhotoPage() {
       }}
     >
       <div className="max-w-2xl w-full">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">📸 Add Photo</h1>
-          <p className="text-gray-600 mb-6">Share your photo of this artwork.</p>
+        <div className="rounded-lg shadow-md p-8 border-2" style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: scheme.text }}>
+            📸 Add Photo
+          </h1>
+          <p className="mb-6" style={{ color: scheme.divider }}>
+            Share your photo of this artwork.
+          </p>
 
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition">
+            <div
+              className="border-2 border-dashed rounded-lg p-8 text-center hover:opacity-75 transition-opacity cursor-pointer"
+              style={{ borderColor: scheme.accent, backgroundColor: scheme.accent + "10" }}
+            >
               <input
                 ref={fileInputRef}
                 type="file"
@@ -156,27 +163,33 @@ export default function UploadPhotoPage() {
                 id="photo-input"
               />
               <label htmlFor="photo-input" className="cursor-pointer block">
-                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48" style={{ color: scheme.accent }}>
                   <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-12l-3.172-3.172a4 4 0 00-5.656 0L28 20M9 20l3.172-3.172a4 4 0 015.656 0L28 20" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="mt-2 text-sm font-medium text-gray-900">
+                <p className="mt-2 text-sm font-medium" style={{ color: scheme.text }}>
                   Click to upload or drag and drop
                 </p>
-                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                <p className="text-xs" style={{ color: scheme.divider }}>
+                  PNG, JPG, HEIC • Will be compressed to under 5MB
+                </p>
               </label>
             </div>
 
             {loading && (
               <div className="text-center">
-                <p className="text-sm text-gray-600">Processing photo...</p>
+                <p className="text-sm" style={{ color: scheme.divider }}>
+                  Processing photo...
+                </p>
               </div>
             )}
 
             {file && !loading && (
-              <div className="bg-gray-50 p-4 rounded-md">
-                <p className="text-sm font-medium text-gray-900">📁 {file.name}</p>
+              <div className="p-4 rounded-lg border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.divider }}>
+                <p className="text-sm font-medium" style={{ color: scheme.text }}>
+                  📁 {file.name}
+                </p>
                 {photoUrl && (
-                  <img src={photoUrl} alt="Preview" className="mt-4 max-h-64 mx-auto rounded-md" />
+                  <img src={photoUrl} alt="Preview" className="mt-4 max-h-64 mx-auto rounded-lg border-2" style={{ borderColor: scheme.divider }} />
                 )}
               </div>
             )}
@@ -189,14 +202,14 @@ export default function UploadPhotoPage() {
                     id="isPrivate"
                     checked={isPrivatePhoto}
                     onChange={(e) => setIsPrivatePhoto(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 rounded"
+                    className="h-4 w-4 rounded"
+                    style={{ accentColor: scheme.accent }}
                     name="isPrivate"
                   />
-                  <label htmlFor="isPrivate" className="text-sm text-gray-700">
+                  <label htmlFor="isPrivate" className="text-sm" style={{ color: scheme.text }}>
                     Keep photo private (don't show in gallery)
                   </label>
                 </div>
-
 
                 <div className="flex gap-4 pt-4">
                   <button
@@ -204,18 +217,23 @@ export default function UploadPhotoPage() {
                     onClick={() => {
                       setFile(null);
                       setPhotoUrl("");
-                      // Reset file input
                       const fileInput = document.getElementById("photo-input") as HTMLInputElement;
                       if (fileInput) fileInput.value = "";
                     }}
-                    className="flex-1 bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 font-medium"
+                    className="flex-1 px-4 py-2 rounded-lg font-medium border-2 transition-opacity hover:opacity-80"
+                    style={{
+                      borderColor: scheme.divider,
+                      color: scheme.text,
+                      backgroundColor: scheme.primaryBg,
+                    }}
                   >
                     ← Back
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
+                    className="flex-1 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: scheme.accent }}
                   >
                     {loading ? "Uploading..." : "✓ Upload Photo"}
                   </button>

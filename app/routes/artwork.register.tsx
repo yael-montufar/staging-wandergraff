@@ -298,18 +298,34 @@ export default function RegisterArtworkPage() {
         }}
       >
         <div className="max-w-md w-full text-center">
-          <div className="rounded-full bg-green-100 p-6 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+          <div className="rounded-full p-6 w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: scheme.accent + "20" }}>
+            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20" style={{ color: scheme.accent }}>
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Mural Pinned! 📍</h2>
-          <p className="text-gray-600 mb-6">Your mural has been successfully pinned to the map.</p>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: scheme.text }}>
+            Mural Pinned! 📍
+          </h2>
+          <p className="mb-6" style={{ color: scheme.divider }}>
+            Your mural has been successfully pinned to the map.
+          </p>
           <div className="flex gap-4">
-            <a href={`/artwork/upload?artworkId=${actionData.artworkId}`} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+            <a
+              href={`/artwork/upload?artworkId=${actionData.artworkId}`}
+              className="flex-1 text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: scheme.accent }}
+            >
               Upload Photo
             </a>
-            <a href="/" className="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-400">
+            <a
+              href="/"
+              className="flex-1 px-4 py-2 rounded-lg font-medium transition-colors border-2"
+              style={{
+                borderColor: scheme.divider,
+                color: scheme.text,
+                backgroundColor: scheme.primaryBg,
+              }}
+            >
               Back Home
             </a>
           </div>
@@ -329,42 +345,48 @@ export default function RegisterArtworkPage() {
       }}
     >
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="rounded-lg shadow-md overflow-hidden border-2" style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}>
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
+          <div className="px-8 py-6 border-b-2" style={{ backgroundColor: scheme.accent, borderColor: scheme.accent }}>
             <h1 className="text-3xl font-bold text-white">📍 Pin a Mural</h1>
-            <p className="text-blue-100 mt-2">Click on the map to pinpoint the location of the street art</p>
+            <p className="text-white/80 mt-2">Click on the map to pinpoint the location of the street art</p>
           </div>
 
           {/* Content */}
           <div className="p-8">
             {actionData?.error && (
-              <div className="rounded-md bg-red-50 p-4 border border-red-200 mb-6">
-                <p className="text-sm font-medium text-red-800">{actionData.error}</p>
+              <div className="rounded-lg p-4 border-2 mb-6" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.accent, color: scheme.accent }}>
+                <p className="text-sm font-medium">{actionData.error}</p>
               </div>
             )}
 
-            <form ref={formRef} method="POST" onSubmit={handleSubmit} className="flex flex-col space-y-4">
+            <form ref={formRef} method="POST" onSubmit={handleSubmit} className="flex flex-col space-y-6">
               {/* Map */}
               <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-900 mb-2">
+                <label className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: scheme.text }}>
                   📍 Artwork Location
                 </label>
                 <div
                   ref={mapRef}
-                  className="w-full rounded-lg border border-gray-300 bg-gray-100"
-                  style={{ height: "400px" }}
+                  className="w-full rounded-lg border-2"
+                  style={{ height: "400px", borderColor: scheme.divider, backgroundColor: scheme.primaryBg }}
                 />
                 {selectedCoords && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm font-semibold text-gray-900 mb-2">📍 Location Address:</p>
-                    <p className="text-lg text-blue-900 font-medium">{geocodingAddress}</p>
-                    <p className="text-xs text-gray-600 mt-2">
+                  <div className="mt-4 p-4 rounded-lg border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.accent }}>
+                    <p className="text-sm font-semibold mb-2 uppercase tracking-wide" style={{ color: scheme.divider }}>
+                      📍 Location Address
+                    </p>
+                    <p className="text-lg font-medium" style={{ color: scheme.text }}>
+                      {geocodingAddress}
+                    </p>
+                    <p className="text-xs font-mono mt-2" style={{ color: scheme.divider }}>
                       {selectedCoords.lat.toFixed(6)}, {selectedCoords.lng.toFixed(6)}
                     </p>
                   </div>
                 )}
-                <p className="text-xs text-gray-500 mt-2">Click on the map to pinpoint the artwork location</p>
+                <p className="text-xs mt-2" style={{ color: scheme.divider }}>
+                  Click on the map to pinpoint the artwork location
+                </p>
               </div>
 
               <input type="hidden" name="latitude" value={selectedCoords?.lat || ""} />
@@ -372,13 +394,22 @@ export default function RegisterArtworkPage() {
               <input type="hidden" name="address" value={address || ""} />
 
               <div className="flex gap-4 pt-4">
-                <a href="/" className="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-400 text-center font-medium">
+                <a
+                  href="/"
+                  className="flex-1 px-4 py-2 rounded-lg text-center font-medium border-2 transition-colors hover:opacity-80"
+                  style={{
+                    borderColor: scheme.divider,
+                    color: scheme.text,
+                    backgroundColor: scheme.primaryBg,
+                  }}
+                >
                   Cancel
                 </a>
                 <button
                   type="submit"
                   disabled={!selectedCoords || loading}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                  className="flex-1 text-white px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 hover:opacity-90"
+                  style={{ backgroundColor: scheme.accent }}
                 >
                   {loading ? "Pinning..." : "📍 Pin Mural"}
                 </button>
@@ -390,10 +421,10 @@ export default function RegisterArtworkPage() {
 
       {/* Duplicate Warning Modal */}
       {showDupModal && actionData?.nearbyArtwork && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full overflow-hidden">
-            <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-4">
-              <h3 className="text-lg font-semibold text-yellow-900 flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="rounded-lg shadow-lg max-w-md w-full overflow-hidden border-2" style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}>
+            <div className="border-b-2 px-6 py-4" style={{ backgroundColor: scheme.accent, borderColor: scheme.accent }}>
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
@@ -402,12 +433,12 @@ export default function RegisterArtworkPage() {
             </div>
 
             <div className="p-6">
-              <p className="text-gray-700 mb-4">
+              <p className="mb-4" style={{ color: scheme.text }}>
                 We found an artwork pinned very close to this location:
               </p>
 
               {/* Preview of nearby artwork */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+              <div className="rounded-lg p-4 mb-6 border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.divider }}>
                 {actionData.nearbyArtwork.photos && actionData.nearbyArtwork.photos[0] && (
                   <img
                     src={actionData.nearbyArtwork.photos[0].photoUrl}
@@ -415,26 +446,27 @@ export default function RegisterArtworkPage() {
                     className="w-full h-40 object-cover rounded-md mb-3"
                   />
                 )}
-                <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                <h4 className="font-semibold text-sm mb-1" style={{ color: scheme.text }}>
                   {actionData.nearbyArtwork.title}
                 </h4>
                 {actionData.nearbyArtwork.address && (
-                  <p className="text-xs text-gray-600 mb-2">
+                  <p className="text-xs mb-2" style={{ color: scheme.divider }}>
                     📍 {actionData.nearbyArtwork.address}
                   </p>
                 )}
                 {(() => {
                   const isClaimMaker = actionData.currentUserId === actionData.nearbyArtwork.artistId && actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL";
                   const displayStatus = isClaimMaker ? actionData.nearbyArtwork.claimStatus : (actionData.nearbyArtwork.claimStatus === "PENDING_APPROVAL" ? "UNCLAIMED" : actionData.nearbyArtwork.claimStatus);
+                  const statusColors = {
+                    CLAIMED: { bg: "bg-green-100", text: "text-green-800" },
+                    PENDING_APPROVAL: { bg: "bg-yellow-100", text: "text-yellow-800" },
+                    UNCLAIMED: { bg: "bg-gray-100", text: "text-gray-800" },
+                  };
+
+                  const colors = statusColors[displayStatus as keyof typeof statusColors] || statusColors.UNCLAIMED;
 
                   return (
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${
-                      displayStatus === "CLAIMED"
-                        ? "bg-green-100 text-green-800"
-                        : displayStatus === "PENDING_APPROVAL"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}>
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${colors.bg} ${colors.text}`}>
                       {displayStatus === "CLAIMED" ? "Claimed" :
                        displayStatus === "PENDING_APPROVAL" ? "Pending Approval" : "Unclaimed"}
                     </span>
@@ -442,14 +474,15 @@ export default function RegisterArtworkPage() {
                 })()}
               </div>
 
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm mb-6" style={{ color: scheme.divider }}>
                 Is this the same artwork you're trying to pin? If so, you can contribute photos to it instead of creating a duplicate.
               </p>
 
               <div className="flex gap-3">
                 <button
                   onClick={handleViewDuplicate}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium text-sm"
+                  className="flex-1 text-white px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: scheme.accent }}
                 >
                   View It
                 </button>
@@ -457,13 +490,19 @@ export default function RegisterArtworkPage() {
                   onClick={() => {
                     setShowDupModal(false);
                   }}
-                  className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium text-sm"
+                  className="flex-1 border-2 px-4 py-2 rounded-lg font-medium text-sm hover:opacity-80 transition-opacity"
+                  style={{
+                    borderColor: scheme.divider,
+                    color: scheme.text,
+                    backgroundColor: scheme.primaryBg,
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDuplicate}
-                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 font-medium text-sm"
+                  className="flex-1 text-white px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: scheme.accent }}
                 >
                   Create New
                 </button>

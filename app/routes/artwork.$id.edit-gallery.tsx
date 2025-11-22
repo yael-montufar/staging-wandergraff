@@ -316,21 +316,39 @@ export default function GalleryEditorPage() {
     <div
       className="min-h-screen relative"
       suppressHydrationWarning
-      style={{ backgroundColor: scheme.primaryBg }}
+      style={{
+        backgroundColor: scheme.primaryBg,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' seed='2'/%3E%3CfeColorMatrix type='saturate' values='0.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23${noiseColor}' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+        backgroundAttachment: "fixed",
+      }}
     >
       <Header user={rootData?.user} />
 
       <main className="max-w-6xl mx-auto px-4 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: scheme.text }}>
-            Manage Official Gallery
-          </h1>
-          <p style={{ color: scheme.divider }}>
-            {artwork.title}
-          </p>
-          <p className="text-sm mt-2" style={{ color: scheme.divider }}>
-            Drag photos to reorder, check boxes to select for bulk delete, or click + to add photos.
-          </p>
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2" style={{ color: scheme.text }}>
+              ✏️ Manage Official Gallery
+            </h1>
+            <p style={{ color: scheme.text }} className="text-lg font-semibold">
+              {artwork.title}
+            </p>
+            <p className="text-sm mt-2" style={{ color: scheme.divider }}>
+              Drag photos to reorder, check boxes to select for bulk delete, or click + to add photos.
+            </p>
+          </div>
+          <a
+            href={`/artwork/${artwork.id}`}
+            className="px-4 py-2 rounded-lg font-medium border-2 transition-colors hover:opacity-80"
+            style={{
+              borderColor: scheme.divider,
+              color: scheme.text,
+              backgroundColor: scheme.primaryBg,
+            }}
+          >
+            ← Back
+          </a>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -338,8 +356,8 @@ export default function GalleryEditorPage() {
           <div className="lg:col-span-2">
             {selectedPhotos.length === 0 ? (
               <div
-                className="rounded-lg p-12 text-center"
-                style={{ backgroundColor: scheme.secondaryBg }}
+                className="rounded-lg p-12 text-center border-2"
+                style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}
               >
                 <p className="text-lg mb-4" style={{ color: scheme.divider }}>
                   No photos in your gallery yet
@@ -354,8 +372,8 @@ export default function GalleryEditorPage() {
               </div>
             ) : (
               <div
-                className="rounded-lg p-6"
-                style={{ backgroundColor: scheme.secondaryBg }}
+                className="rounded-lg p-6 border-2"
+                style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}
               >
                 <GalleryPreview
                   photos={previewPhotos as any[]}
@@ -373,22 +391,22 @@ export default function GalleryEditorPage() {
           {/* Right: Gallery Settings & Controls */}
           <div>
             <div
-              className="rounded-lg p-6 sticky top-4"
-              style={{ backgroundColor: scheme.secondaryBg }}
+              className="rounded-lg p-6 sticky top-4 border-2"
+              style={{ backgroundColor: scheme.secondaryBg, borderColor: scheme.divider }}
             >
-              <h2 className="text-xl font-bold mb-6" style={{ color: scheme.text }}>
+              <h2 className="text-xl font-bold mb-6 uppercase tracking-wide" style={{ color: scheme.text }}>
                 Gallery Settings
               </h2>
 
               {/* Status Info */}
-              <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: scheme.primaryBg }}>
-                <p className="text-sm font-medium mb-2" style={{ color: scheme.text }}>
+              <div className="mb-6 p-4 rounded-lg border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.divider }}>
+                <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: scheme.divider }}>
                   Selected Photos
                 </p>
-                <p className="text-2xl font-bold" style={{ color: scheme.accent }}>
+                <p className="text-3xl font-bold" style={{ color: scheme.accent }}>
                   {selectedPhotos.length}
                 </p>
-                <p className="text-xs mt-1" style={{ color: scheme.divider }}>
+                <p className="text-xs mt-2" style={{ color: scheme.divider }}>
                   {selectedPhotos.length === 0
                     ? "Select photos to build your gallery"
                     : selectedPhotos.length === 1
@@ -399,13 +417,14 @@ export default function GalleryEditorPage() {
 
               {/* Bulk Delete Section */}
               {checkedPhotoIds.length > 0 && (
-                <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm font-medium text-red-900 mb-3">
+                <div className="mb-6 p-4 rounded-lg border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.accent }}>
+                  <p className="text-sm font-medium mb-3" style={{ color: scheme.accent }}>
                     {checkedPhotoIds.length} photo{checkedPhotoIds.length !== 1 ? 's' : ''} selected
                   </p>
                   <button
                     onClick={() => handleDeletePhotos(checkedPhotoIds)}
-                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: scheme.accent }}
                   >
                     🗑️ Delete Selected
                   </button>
@@ -413,13 +432,14 @@ export default function GalleryEditorPage() {
               )}
 
               {/* Publish Toggle */}
-              <div className="mb-6">
+              <div className="mb-6 p-4 rounded-lg border-2" style={{ backgroundColor: scheme.primaryBg, borderColor: scheme.divider }}>
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={isPublished}
                     onChange={(e) => setIsPublished(e.target.checked)}
-                    className="w-5 h-5 cursor-pointer"
+                    className="w-5 h-5 cursor-pointer rounded"
+                    style={{ accentColor: scheme.accent }}
                   />
                   <div className="flex-1">
                     <p style={{ color: scheme.text }} className="text-sm font-medium">
@@ -451,15 +471,6 @@ export default function GalleryEditorPage() {
                   {fetcher.state !== "idle" ? "Saving..." : "💾 Save Gallery"}
                 </Button>
               </form>
-
-              {/* Back Link */}
-              <a
-                href={`/artwork/${artwork.id}`}
-                className="block text-center text-sm font-medium py-2"
-                style={{ color: scheme.accent }}
-              >
-                ← Back to Artwork
-              </a>
             </div>
           </div>
         </div>
