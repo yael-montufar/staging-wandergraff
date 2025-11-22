@@ -195,7 +195,7 @@ export default function GalleryEditorPage() {
   const fetcher = useFetcher<typeof action>();
 
   const { artwork, artistPhotos: loaderArtistPhotos, isArtist, isAdmin } = loaderData;
-  const { scheme } = useTheme();
+  const { scheme, noiseColor } = useTheme();
 
   const originalGalleryOrder = (artwork.galleryImageOrder as string[]) || [];
   const originalPublished = artwork.galleryPublished || false;
